@@ -1,0 +1,28 @@
+{
+  "name": "jobs",
+  "version": "1.0.0",
+  "description": "Job scheduling with Bree and node-cron",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "bree": "^8.0.5",
+    "core": "workspace:*",
+    "data": "workspace:*",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/node-cron": "^3.0.11",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}

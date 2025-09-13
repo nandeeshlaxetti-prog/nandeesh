@@ -1,0 +1,86 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "description": "LNN Legal Desktop Application",
+  "main": "dist/main.js",
+  "private": true,
+  "homepage": "./",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:main": "tsc -p tsconfig.main.json && electron dist/main.js",
+    "dev:renderer": "cd ../web && pnpm dev",
+    "build": "pnpm build:main && pnpm build:renderer",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "cd ../web && pnpm build",
+    "start": "electron dist/main.js",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:win-exe": "electron-builder --win --x64",
+    "dist:win-msi": "electron-builder --win --x64 --msi"
+  },
+  "dependencies": {
+    "electron": "^28.1.0",
+    "core": "workspace:*",
+    "data": "workspace:*",
+    "jobs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "concurrently": "^8.2.2",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.lnnlegal.desktop",
+    "productName": "LNN Legal Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "../web/out/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/out",
+        "to": "web/out",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "msi",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "LNN Legal",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LNN Legal Desktop"
+    },
+    "msi": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LNN Legal Desktop"
+    }
+  }
+}

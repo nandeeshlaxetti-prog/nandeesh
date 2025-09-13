@@ -1,0 +1,58 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - heading "Cases" [level=1] [ref=e7]
+          - paragraph [ref=e8]: Manage your legal cases
+        - button "Add Case" [active] [ref=e9] [cursor=pointer]
+    - main [ref=e10]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - heading "Cases" [level=3] [ref=e14]
+          - paragraph [ref=e15]: List of all legal cases
+        - list [ref=e16]:
+          - listitem [ref=e17]:
+            - generic [ref=e18]:
+              - generic [ref=e19]:
+                - generic [ref=e20]:
+                  - paragraph [ref=e21]: CASE-2024-001
+                  - generic [ref=e23]: HIGH
+                - generic [ref=e24]:
+                  - paragraph [ref=e26]: Contract Dispute Resolution
+                  - generic [ref=e27]:
+                    - paragraph [ref=e28]: High Court of Delhi
+                    - generic [ref=e29]: •
+                    - paragraph [ref=e30]: Arguments
+              - paragraph [ref=e32]: "Next Hearing: 4/15/2024"
+          - listitem [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e35]:
+                - generic [ref=e36]:
+                  - paragraph [ref=e37]: CASE-2024-002
+                  - generic [ref=e39]: MEDIUM
+                - generic [ref=e40]:
+                  - paragraph [ref=e42]: Property Settlement
+                  - generic [ref=e43]:
+                    - paragraph [ref=e44]: Bombay High Court
+                    - generic [ref=e45]: •
+                    - paragraph [ref=e46]: Evidence
+              - paragraph [ref=e48]: "Next Hearing: 4/20/2024"
+          - listitem [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]:
+                - generic [ref=e52]:
+                  - paragraph [ref=e53]: CASE-2024-003
+                  - generic [ref=e55]: URGENT
+                - generic [ref=e56]:
+                  - paragraph [ref=e58]: Employment Law Matter
+                  - generic [ref=e59]:
+                    - paragraph [ref=e60]: Labor Court
+                    - generic [ref=e61]: •
+                    - paragraph [ref=e62]: Preliminary
+              - paragraph [ref=e64]: No upcoming hearings
+  - alert [ref=e65]
+```

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "core": ["./packages/core/src"],
+      "core/*": ["./packages/core/src/*"],
+      "data": ["./packages/data/src"],
+      "data/*": ["./packages/data/src/*"],
+      "jobs": ["./packages/jobs/src"],
+      "jobs/*": ["./packages/jobs/src/*"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "apps/*/src/**/*",
+    "apps/web/app/**/*",
+    "apps/web/components/**/*",
+    "apps/web/lib/**/*"
+  ],
+  "exclude": ["node_modules", "dist", ".next", "out"]
+}

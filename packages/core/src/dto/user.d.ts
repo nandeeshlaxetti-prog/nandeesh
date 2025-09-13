@@ -1,0 +1,286 @@
+import { z } from 'zod';
+export declare const UserRoleSchema: z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>;
+export type UserRole = z.infer<typeof UserRoleSchema>;
+export declare const UserStatusSchema: z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>;
+export type UserStatus = z.infer<typeof UserStatusSchema>;
+export declare const UserSchema: z.ZodObject<{
+    id: z.ZodString;
+    email: z.ZodString;
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    role: z.ZodDefault<z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>>;
+    status: z.ZodDefault<z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>>;
+    phone: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodString>;
+    dateOfBirth: z.ZodOptional<z.ZodDate>;
+    joiningDate: z.ZodOptional<z.ZodDate>;
+    profilePicture: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    isActive: z.ZodDefault<z.ZodBoolean>;
+    lastLoginAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodDate;
+    updatedAt: z.ZodDate;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT";
+    status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING";
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+    lastLoginAt?: Date | undefined;
+}, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    role?: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT" | undefined;
+    status?: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING" | undefined;
+    isActive?: boolean | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+    lastLoginAt?: Date | undefined;
+}>;
+export declare const CreateUserSchema: z.ZodObject<Omit<{
+    id: z.ZodString;
+    email: z.ZodString;
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    role: z.ZodDefault<z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>>;
+    status: z.ZodDefault<z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>>;
+    phone: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodString>;
+    dateOfBirth: z.ZodOptional<z.ZodDate>;
+    joiningDate: z.ZodOptional<z.ZodDate>;
+    profilePicture: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    isActive: z.ZodDefault<z.ZodBoolean>;
+    lastLoginAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodDate;
+    updatedAt: z.ZodDate;
+}, "id" | "createdAt" | "updatedAt" | "lastLoginAt">, "strip", z.ZodTypeAny, {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT";
+    status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING";
+    isActive: boolean;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}, {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role?: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT" | undefined;
+    status?: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING" | undefined;
+    isActive?: boolean | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}>;
+export declare const UpdateUserSchema: z.ZodObject<{
+    email: z.ZodOptional<z.ZodString>;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+    role: z.ZodOptional<z.ZodDefault<z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>>>;
+    status: z.ZodOptional<z.ZodDefault<z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>>>;
+    isActive: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+    phone: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    address: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    dateOfBirth: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    joiningDate: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    profilePicture: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    bio: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    email?: string | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    role?: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT" | undefined;
+    status?: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING" | undefined;
+    isActive?: boolean | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}, {
+    email?: string | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    role?: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT" | undefined;
+    status?: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING" | undefined;
+    isActive?: boolean | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}>;
+export declare const UserResponseSchema: z.ZodObject<{
+    id: z.ZodString;
+    email: z.ZodString;
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    role: z.ZodDefault<z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>>;
+    status: z.ZodDefault<z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>>;
+    phone: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodString>;
+    dateOfBirth: z.ZodOptional<z.ZodDate>;
+    joiningDate: z.ZodOptional<z.ZodDate>;
+    profilePicture: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    isActive: z.ZodDefault<z.ZodBoolean>;
+    lastLoginAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodDate;
+    updatedAt: z.ZodDate;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT";
+    status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING";
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+    lastLoginAt?: Date | undefined;
+}, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    role?: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT" | undefined;
+    status?: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING" | undefined;
+    isActive?: boolean | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    joiningDate?: Date | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+    lastLoginAt?: Date | undefined;
+}>;
+export declare const UserListSchema: z.ZodObject<{
+    id: z.ZodString;
+    email: z.ZodString;
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    role: z.ZodEnum<["ADMIN", "LAWYER", "PARALEGAL", "CLIENT", "SUPPORT"]>;
+    status: z.ZodEnum<["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING"]>;
+    isActive: z.ZodBoolean;
+    lastLoginAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodDate;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT";
+    status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING";
+    isActive: boolean;
+    createdAt: Date;
+    lastLoginAt?: Date | undefined;
+}, {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: "ADMIN" | "LAWYER" | "PARALEGAL" | "CLIENT" | "SUPPORT";
+    status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING";
+    isActive: boolean;
+    createdAt: Date;
+    lastLoginAt?: Date | undefined;
+}>;
+export declare const UserLoginSchema: z.ZodObject<{
+    email: z.ZodString;
+    password: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    email: string;
+    password: string;
+}, {
+    email: string;
+    password: string;
+}>;
+export declare const UserProfileUpdateSchema: z.ZodObject<{
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+    phone: z.ZodOptional<z.ZodString>;
+    address: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    profilePicture: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}, {
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    phone?: string | undefined;
+    address?: string | undefined;
+    profilePicture?: string | undefined;
+    bio?: string | undefined;
+}>;
+export declare const UserPasswordChangeSchema: z.ZodEffects<z.ZodObject<{
+    currentPassword: z.ZodString;
+    newPassword: z.ZodString;
+    confirmPassword: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}, {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}>, {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}, {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}>;
+export type User = z.infer<typeof UserSchema>;
+export type CreateUser = z.infer<typeof CreateUserSchema>;
+export type UpdateUser = z.infer<typeof UpdateUserSchema>;
+export type UserResponse = z.infer<typeof UserResponseSchema>;
+export type UserList = z.infer<typeof UserListSchema>;
+export type UserLogin = z.infer<typeof UserLoginSchema>;
+export type UserProfileUpdate = z.infer<typeof UserProfileUpdateSchema>;
+export type UserPasswordChange = z.infer<typeof UserPasswordChangeSchema>;
+//# sourceMappingURL=user.d.ts.map

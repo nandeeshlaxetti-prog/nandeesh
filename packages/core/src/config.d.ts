@@ -1,0 +1,82 @@
+import { z } from 'zod';
+declare const envSchema: z.ZodObject<{
+    APP_MODE: z.ZodDefault<z.ZodEnum<["desktop", "web", "server"]>>;
+    DESKTOP_RUNTIME: z.ZodDefault<z.ZodEnum<["electron", "tauri", "neutralino"]>>;
+    QUEUE_BACKEND: z.ZodDefault<z.ZodEnum<["local", "redis", "sqs", "bull"]>>;
+    DATA_DIR: z.ZodOptional<z.ZodString>;
+    DATABASE_URL: z.ZodOptional<z.ZodString>;
+    NODE_ENV: z.ZodDefault<z.ZodEnum<["development", "production", "test"]>>;
+    LOG_LEVEL: z.ZodDefault<z.ZodEnum<["error", "warn", "info", "debug"]>>;
+    API_PORT: z.ZodOptional<z.ZodEffects<z.ZodString, number, string>>;
+    API_HOST: z.ZodDefault<z.ZodString>;
+    JWT_SECRET: z.ZodOptional<z.ZodString>;
+    ENCRYPTION_KEY: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    APP_MODE: "desktop" | "web" | "server";
+    DESKTOP_RUNTIME: "electron" | "tauri" | "neutralino";
+    QUEUE_BACKEND: "local" | "redis" | "sqs" | "bull";
+    NODE_ENV: "development" | "production" | "test";
+    LOG_LEVEL: "info" | "warn" | "error" | "debug";
+    API_HOST: string;
+    DATABASE_URL?: string | undefined;
+    DATA_DIR?: string | undefined;
+    API_PORT?: number | undefined;
+    JWT_SECRET?: string | undefined;
+    ENCRYPTION_KEY?: string | undefined;
+}, {
+    DATABASE_URL?: string | undefined;
+    APP_MODE?: "desktop" | "web" | "server" | undefined;
+    DESKTOP_RUNTIME?: "electron" | "tauri" | "neutralino" | undefined;
+    QUEUE_BACKEND?: "local" | "redis" | "sqs" | "bull" | undefined;
+    DATA_DIR?: string | undefined;
+    NODE_ENV?: "development" | "production" | "test" | undefined;
+    LOG_LEVEL?: "info" | "warn" | "error" | "debug" | undefined;
+    API_PORT?: string | undefined;
+    API_HOST?: string | undefined;
+    JWT_SECRET?: string | undefined;
+    ENCRYPTION_KEY?: string | undefined;
+}>;
+export declare const config: {
+    APP_MODE: "desktop" | "web" | "server";
+    DESKTOP_RUNTIME: "electron" | "tauri" | "neutralino";
+    QUEUE_BACKEND: "local" | "redis" | "sqs" | "bull";
+    NODE_ENV: "development" | "production" | "test";
+    LOG_LEVEL: "info" | "warn" | "error" | "debug";
+    API_HOST: string;
+    DATABASE_URL?: string | undefined;
+    DATA_DIR?: string | undefined;
+    API_PORT?: number | undefined;
+    JWT_SECRET?: string | undefined;
+    ENCRYPTION_KEY?: string | undefined;
+};
+export type AppMode = z.infer<typeof envSchema>['APP_MODE'];
+export type DesktopRuntime = z.infer<typeof envSchema>['DESKTOP_RUNTIME'];
+export type QueueBackend = z.infer<typeof envSchema>['QUEUE_BACKEND'];
+export type NodeEnv = z.infer<typeof envSchema>['NODE_ENV'];
+export type LogLevel = z.infer<typeof envSchema>['LOG_LEVEL'];
+export declare const ConfigUtils: {
+    isDesktop: () => boolean;
+    isWeb: () => boolean;
+    isServer: () => boolean;
+    isDevelopment: () => boolean;
+    isProduction: () => boolean;
+    isTest: () => boolean;
+    getDataDir: () => string;
+    getDatabaseUrl: () => string;
+    getApiUrl: () => string;
+    ensureDataDir: () => Promise<void>;
+    getSummary: () => {
+        appMode: "desktop" | "web" | "server";
+        desktopRuntime: "electron" | "tauri" | "neutralino";
+        queueBackend: "local" | "redis" | "sqs" | "bull";
+        nodeEnv: "development" | "production" | "test";
+        logLevel: "info" | "warn" | "error" | "debug";
+        dataDir: string | undefined;
+        apiHost: string;
+        apiPort: number | undefined;
+        hasJwtSecret: boolean;
+        hasEncryptionKey: boolean;
+    };
+};
+export { envSchema };
+//# sourceMappingURL=config.d.ts.map

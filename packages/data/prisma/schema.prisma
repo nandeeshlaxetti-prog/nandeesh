@@ -1,0 +1,819 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MANAGEMENT MODELS
+// ============================================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?  // bcrypt hash for local authentication
+  firstName     String
+  lastName      String
+  role          String   @default("LAWYER") // ADMIN, LAWYER, PARALEGAL, CLIENT, SUPPORT
+  status        String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED, PENDING
+  phone         String?
+  address       String?
+  dateOfBirth   DateTime?
+  joiningDate   DateTime?
+  profilePicture String?
+  bio           String?
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  assignedCases        Case[]           @relation("AssignedLawyer")
+  clientCases          Case[]           @relation("ClientCases")
+  defaultAssigneeCases Case[]           @relation("DefaultAssignee")
+  clientProjects       Project[]        @relation("ClientProjects")
+  managedProjects      Project[]        @relation("ProjectManager")
+  uploadedDocs         Document[]
+  assignedTasks        Task[]           @relation("AssignedTasks")
+  createdTasks         Task[]           @relation("CreatedTasks")
+  assignedSubtasks     Subtask[]        @relation("AssignedSubtasks")
+  createdSubtasks      Subtask[]        @relation("CreatedSubtasks")
+  worklogs             Worklog[]
+  leaveRequests        LeaveRequest[]
+  leaveRequestsToApprove LeaveRequest[] @relation("LeaveApprover")
+  auditLogs            AuditLog[]
+  teamMemberships      TeamMember[]
+  teamsLed             Team[]           @relation("TeamLead")
+  userPendingSummaries UserPendingSummary[]
+  employee             Employee?
+  notifications        Notification[]
+  uploadedFiles        File[]
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([isActive])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, ARCHIVED
+  leadId      String?
+  department  String?
+  color       String?  // Hex color code
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  lead      User?        @relation("TeamLead", fields: [leadId], references: [id])
+  members   TeamMember[]
+  cases     Case[]
+  projects  Project[]
+  slaRules  SLARule[]
+
+  @@map("teams")
+  @@index([leadId])
+  @@index([status])
+  @@index([department])
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     String   @default("MEMBER") // LEAD, MEMBER, CONTRIBUTOR
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+  isActive Boolean  @default(true)
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("team_members")
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Employee {
+  id              String   @id @default(cuid())
+  employeeId      String   @unique // Employee ID/Number
+  userId          String   @unique
+  department      String?  // HR, IT, FINANCE, LEGAL, ADMIN, MARKETING, SALES, OTHER
+  designation     String?  // Senior Associate, Partner, Manager, Director, etc.
+  reportingManager String? // Employee ID of reporting manager
+  employmentType  String   @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERN, CONSULTANT
+  workLocation    String?  // Office location
+  workSchedule    String?  // JSON: work hours, days, timezone
+  skills          String   @default("[]") // JSON array of skills
+  certifications  String   @default("[]") // JSON array of certifications
+  experience      Float?   // Years of experience
+  salary          Float?   // Monthly salary
+  currency        String   @default("INR")
+  joiningDate     DateTime?
+  probationEndDate DateTime?
+  confirmationDate DateTime?
+  lastPromotionDate DateTime?
+  nextReviewDate  DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportingTo     Employee? @relation("ReportingHierarchy", fields: [reportingManager], references: [employeeId])
+  reports         Employee[] @relation("ReportingHierarchy")
+  teamMemberships TeamMember[]
+  slaEvaluations  SLAEvaluation[]
+
+  @@map("employees")
+  @@index([employeeId])
+  @@index([userId])
+  @@index([department])
+  @@index([designation])
+  @@index([employmentType])
+  @@index([isActive])
+  @@index([reportingManager])
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  code            String   @unique // Project code/identifier
+  status          String   @default("PLANNING") // PLANNING, ACTIVE, ON_HOLD, COMPLETED, CANCELLED
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  type            String   @default("CLIENT_PROJECT") // CLIENT_PROJECT, INTERNAL_PROJECT, RESEARCH_PROJECT, TRAINING_PROJECT, OTHER
+  clientId        String?  // If it's a client project
+  teamId          String?  // Assigned team
+  managerId       String?  // Project manager
+  startDate       DateTime?
+  endDate         DateTime?
+  estimatedHours  Float?
+  actualHours     Float?
+  budget          Float?
+  currency        String   @default("INR")
+  tags            String   @default("[]") // JSON array of strings
+  milestones      String   @default("[]") // JSON array of milestones
+  deliverables    String   @default("[]") // JSON array of deliverables
+  risks           String   @default("[]") // JSON array of risks
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  client  User?   @relation("ClientProjects", fields: [clientId], references: [id])
+  team    Team?   @relation(fields: [teamId], references: [id])
+  manager User?   @relation("ProjectManager", fields: [managerId], references: [id])
+  cases   Case[]
+
+  @@map("projects")
+  @@index([code])
+  @@index([status])
+  @@index([priority])
+  @@index([type])
+  @@index([clientId])
+  @@index([teamId])
+  @@index([managerId])
+  @@index([isActive])
+}
+
+model SLARule {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  entityType      String   // CASE, TASK, HEARING, ORDER, PROJECT
+  entitySubType   String?  // Specific subtype (e.g., CIVIL, CRIMINAL for cases)
+  priority        String?  // LOW, MEDIUM, HIGH, URGENT
+  teamId          String?  // Team-specific SLA
+  conditions      String   // JSON: conditions for SLA application
+  metrics         String   // JSON: SLA metrics and thresholds
+  escalationRules String  // JSON: escalation rules
+  notifications   String   // JSON: notification settings
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  team        Team?           @relation(fields: [teamId], references: [id])
+  evaluations SLAEvaluation[]
+
+  @@map("sla_rules")
+  @@index([entityType])
+  @@index([entitySubType])
+  @@index([priority])
+  @@index([teamId])
+  @@index([isActive])
+}
+
+model SLAEvaluation {
+  id              String   @id @default(cuid())
+  entityType      String   // CASE, TASK, HEARING, ORDER, PROJECT
+  entityId        String   // ID of the entity being evaluated
+  slaRuleId       String
+  employeeId      String?  // Employee who triggered evaluation
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BREACHED, ESCALATED
+  currentValue    Float?   // Current metric value
+  thresholdValue  Float?   // SLA threshold value
+  breachDate      DateTime?
+  escalationDate DateTime?
+  resolutionDate  DateTime?
+  notes           String?
+  metadata        String   @default("{}") // JSON: additional metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  slaRule   SLARule  @relation(fields: [slaRuleId], references: [id], onDelete: Cascade)
+  employee  Employee? @relation(fields: [employeeId], references: [employeeId])
+
+  @@map("sla_evaluations")
+  @@index([entityType])
+  @@index([entityId])
+  @@index([slaRuleId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([breachDate])
+  @@index([escalationDate])
+}
+
+// ============================================================================
+// CASE MANAGEMENT MODELS
+// ============================================================================
+
+model Case {
+  id                  String   @id @default(cuid())
+  caseNumber          String   @unique
+  title               String
+  description         String?
+  status              String   @default("OPEN") // OPEN, IN_PROGRESS, CLOSED, ARCHIVED, SUSPENDED
+  priority            String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  type                String   @default("CIVIL") // CIVIL, CRIMINAL, FAMILY, CORPORATE, IP, LABOR, TAX, REAL_ESTATE, BANKING, INSURANCE, OTHER
+  clientId            String
+  assignedLawyerId    String?
+  teamId              String?
+  projectId           String?  // Optional project link
+  defaultAssigneeId   String?  // Default assignee for tasks
+  courtName           String?
+  courtLocation       String?
+  caseValue           Float?
+  currency            String   @default("INR")
+  filingDate          DateTime?
+  expectedCompletionDate DateTime?
+  actualCompletionDate DateTime?
+  tags                String   @default("[]") // JSON array of strings
+  isConfidential      Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  client         User         @relation("ClientCases", fields: [clientId], references: [id])
+  assignedLawyer User?        @relation("AssignedLawyer", fields: [assignedLawyerId], references: [id])
+  team           Team?        @relation(fields: [teamId], references: [id])
+  project        Project?     @relation(fields: [projectId], references: [id])
+  defaultAssignee User?       @relation("DefaultAssignee", fields: [defaultAssigneeId], references: [id])
+  documents      Document[]
+  tasks          Task[]
+  parties        Party[]
+  hearings       Hearing[]
+  orders         Order[]
+  worklogs       Worklog[]
+  files          File[]
+
+  @@map("cases")
+  @@index([caseNumber])
+  @@index([clientId])
+  @@index([assignedLawyerId])
+  @@index([teamId])
+  @@index([projectId])
+  @@index([defaultAssigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([type])
+  @@index([filingDate])
+  @@index([isConfidential])
+}
+
+model Party {
+  id                String   @id @default(cuid())
+  name              String
+  type              String   @default("INDIVIDUAL") // INDIVIDUAL, COMPANY, GOVERNMENT, NGO, OTHER
+  role              String   @default("PLAINTIFF") // PLAINTIFF, DEFENDANT, THIRD_PARTY, WITNESS, EXPERT, OTHER
+  caseId            String
+  contactPerson     String?
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  state             String?
+  country           String   @default("India")
+  pincode           String?
+  registrationNumber String?
+  panNumber         String?
+  gstNumber         String?
+  isActive          Boolean  @default(true)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("parties")
+  @@index([caseId])
+  @@index([type])
+  @@index([role])
+  @@index([isActive])
+}
+
+model Hearing {
+  id                String   @id @default(cuid())
+  caseId            String
+  hearingNumber     String
+  type              String   @default("FIRST_HEARING") // FIRST_HEARING, ARGUMENTS, EVIDENCE, JUDGMENT, EXECUTION, MEDIATION, ARBITRATION, APPEAL, REVIEW, OTHER
+  status            String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, POSTPONED
+  scheduledDate     DateTime
+  scheduledTime     String   // HH:MM format
+  duration          Int      @default(60) // Duration in minutes
+  courtName         String
+  courtLocation     String?
+  judgeName         String?
+  courtroom         String?
+  description       String?
+  agenda            String?
+  attendees         String   @default("[]") // JSON array of user IDs
+  documents         String   @default("[]") // JSON array of document IDs
+  outcome           String?
+  nextHearingDate   DateTime?
+  notes             String?
+  isConfidential    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("hearings")
+  @@index([caseId])
+  @@index([scheduledDate])
+  @@index([nextHearingDate]) // Useful index as requested
+  @@index([status])
+  @@index([type])
+  @@index([courtName])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  caseId          String
+  orderNumber     String   @unique
+  type            String   @default("FINAL_ORDER") // INTERIM_ORDER, FINAL_ORDER, EXECUTION_ORDER, STAY_ORDER, INJUNCTION, DECREE, AWARD, SETTLEMENT, OTHER
+  status          String   @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED, EXECUTED, CANCELLED
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  title           String
+  description     String?
+  content         String
+  courtName       String
+  judgeName       String?
+  orderDate       DateTime?
+  effectiveDate   DateTime?
+  expiryDate      DateTime?
+  createdBy       String
+  approvedBy      String?
+  approvedAt      DateTime?
+  executedBy      String?
+  executedAt      DateTime?
+  executionNotes  String?
+  attachments     String   @default("[]") // JSON array of document IDs
+  isConfidential  Boolean  @default(false)
+  tags            String   @default("[]") // JSON array of strings
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  files File[]
+
+  @@map("orders")
+  @@index([caseId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([orderDate])
+  @@index([effectiveDate])
+}
+
+// ============================================================================
+// TASK MANAGEMENT MODELS
+// ============================================================================
+
+model Task {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  category        String   @default("CASE") // CASE, PERSONAL, ADMIN, BIZDEV
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED, ON_HOLD
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  caseId          String?
+  assignedTo      String?
+  createdBy       String
+  dueDate         DateTime?
+  completedAt     DateTime?
+  estimatedHours  Float?
+  actualHours     Float?
+  tags            String   @default("[]") // JSON array of strings
+  attachments     String   @default("[]") // JSON array of document IDs
+  isRecurring     Boolean  @default(false)
+  recurringPattern String? // DAILY, WEEKLY, MONTHLY, YEARLY
+  recurrenceJSON  String?  // JSON: detailed recurrence configuration
+  parentTaskId    String?
+  dependencies    String   @default("[]") // JSON array of task IDs
+  progress        Int      @default(0) // Progress percentage (0-100)
+  notes           String?
+  isConfidential  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  case        Case?     @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  assignee    User?     @relation("AssignedTasks", fields: [assignedTo], references: [id])
+  creator     User      @relation("CreatedTasks", fields: [createdBy], references: [id])
+  parentTask  Task?     @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks    Task[]    @relation("TaskHierarchy")
+  worklogs    Worklog[]
+  subtaskItems Subtask[]
+
+  @@map("tasks")
+  @@index([caseId])
+  @@index([assignedTo]) // Useful index as requested (assigneeId)
+  @@index([createdBy])
+  @@index([category])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([isRecurring])
+  @@index([parentTaskId])
+}
+
+model Subtask {
+  id              String   @id @default(cuid())
+  taskId          String
+  title           String
+  description     String?
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assignedTo      String?
+  createdBy       String
+  dueDate         DateTime?
+  completedAt     DateTime?
+  estimatedHours  Float?
+  actualHours     Float?
+  order           Int      @default(0) // For ordering subtasks
+  dependencies    String   @default("[]") // JSON array of subtask IDs
+  progress        Int      @default(0) // Progress percentage (0-100)
+  notes           String?
+  attachments     String   @default("[]") // JSON array of document IDs
+  isConfidential  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignee User? @relation("AssignedSubtasks", fields: [assignedTo], references: [id])
+  creator  User  @relation("CreatedSubtasks", fields: [createdBy], references: [id])
+
+  @@map("subtasks")
+  @@index([taskId])
+  @@index([assignedTo]) // Useful index as requested (assigneeId)
+  @@index([createdBy])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([order])
+}
+
+// ============================================================================
+// WORK MANAGEMENT MODELS
+// ============================================================================
+
+model Worklog {
+  id              String   @id @default(cuid())
+  userId          String
+  caseId          String?
+  taskId          String?
+  subtaskId       String?
+  type            String   @default("CASE_WORK") // CASE_WORK, ADMIN_WORK, RESEARCH, MEETING, TRAVEL, OTHER
+  status          String   @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  date            DateTime
+  startTime       String   // HH:MM format
+  endTime         String   // HH:MM format
+  duration        Float    // Duration in hours
+  description     String
+  activities      String   @default("[]") // JSON array of activities
+  billableHours   Float?
+  hourlyRate      Float?
+  totalAmount     Float?
+  location        String?
+  isBillable      Boolean  @default(true)
+  isOvertime      Boolean  @default(false)
+  attachments     String   @default("[]") // JSON array of document IDs
+  notes           String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user    User  @relation(fields: [userId], references: [id])
+  case    Case? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  task    Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@map("worklogs")
+  @@index([userId])
+  @@index([caseId])
+  @@index([taskId])
+  @@index([subtaskId])
+  @@index([date])
+  @@index([status])
+  @@index([type])
+  @@index([isBillable])
+}
+
+model LeaveRequest {
+  id                  String   @id @default(cuid())
+  userId              String
+  type                String   @default("ANNUAL_LEAVE") // SICK_LEAVE, ANNUAL_LEAVE, CASUAL_LEAVE, MATERNITY_LEAVE, PATERNITY_LEAVE, BEREAVEMENT_LEAVE, COMPENSATORY_LEAVE, SABBATICAL, UNPAID_LEAVE, OTHER
+  status              String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  duration            String   @default("FULL_DAY") // FULL_DAY, HALF_DAY_MORNING, HALF_DAY_EVENING, HOURLY
+  startDate           DateTime
+  endDate             DateTime
+  startTime           String?  // HH:MM format
+  endTime             String?  // HH:MM format
+  totalDays           Float
+  reason              String
+  medicalCertificate  String?  // Document ID
+  emergencyContact    String?
+  emergencyPhone      String?
+  attachments         String   @default("[]") // JSON array of document IDs
+  appliedBy           String
+  appliedAt           DateTime @default(now())
+  approvedBy          String?
+  approvedAt          DateTime?
+  rejectedBy          String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  cancelledBy         String?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  notes               String?
+  isEmergency         Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user     User  @relation(fields: [userId], references: [id])
+  approver User? @relation("LeaveApprover", fields: [approvedBy], references: [id])
+
+  @@map("leave_requests")
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([appliedBy])
+  @@index([approvedBy])
+}
+
+// ============================================================================
+// SYSTEM MANAGEMENT MODELS
+// ============================================================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  sessionId     String?
+  action        String   // CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT, APPROVE, REJECT, ASSIGN, UNASSIGN, EXPORT, IMPORT, UPLOAD, DOWNLOAD, SHARE, ARCHIVE, RESTORE, OTHER
+  entityType    String   // USER, TEAM, CASE, PARTY, HEARING, ORDER, TASK, SUBTASK, WORKLOG, LEAVE_REQUEST, DOCUMENT, SYSTEM, CONFIGURATION, OTHER
+  entityId      String?
+  entityName    String?
+  severity      String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  description   String
+  details       String?  // JSON details
+  oldValues     String?  // JSON old values
+  newValues     String?  // JSON new values
+  ipAddress     String?
+  userAgent     String?
+  location      String?
+  resource      String?
+  method        String?  // GET, POST, PUT, PATCH, DELETE
+  statusCode    Int?
+  responseTime  Float?   // Response time in ms
+  errorMessage  String?
+  tags          String   @default("[]") // JSON array of strings
+  isSensitive   Boolean  @default(false)
+  retentionDate DateTime?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([isSensitive])
+}
+
+model UserPendingSummary {
+  id                    String   @id @default(cuid())
+  userId                String
+  date                  DateTime
+  
+  // Case-related pending items
+  pendingCases          Int      @default(0)
+  urgentCases           Int      @default(0)
+  overdueCases          Int      @default(0)
+  
+  // Task-related pending items
+  pendingTasks          Int      @default(0)
+  urgentTasks           Int      @default(0)
+  overdueTasks          Int      @default(0)
+  personalTasks         Int      @default(0)
+  adminTasks            Int      @default(0)
+  bizDevTasks           Int      @default(0)
+  
+  // Subtask-related pending items
+  pendingSubtasks       Int      @default(0)
+  urgentSubtasks        Int      @default(0)
+  overdueSubtasks       Int      @default(0)
+  
+  // Hearing-related pending items
+  upcomingHearings      Int      @default(0)
+  hearingsThisWeek      Int      @default(0)
+  hearingsToday         Int      @default(0)
+  
+  // Order-related pending items
+  pendingOrders         Int      @default(0)
+  ordersToExecute       Int      @default(0)
+  overdueOrders         Int      @default(0)
+  
+  // Worklog-related pending items
+  pendingWorklogs       Int      @default(0)
+  worklogsToApprove     Int      @default(0)
+  
+  // Leave-related pending items
+  pendingLeaveRequests  Int      @default(0)
+  leaveRequestsToApprove Int     @default(0)
+  
+  // Document-related pending items
+  pendingDocuments      Int      @default(0)
+  documentsToReview     Int      @default(0)
+  
+  // Team-related pending items
+  teamInvitations       Int      @default(0)
+  pendingTeamTasks      Int      @default(0)
+  
+  // Overall summary
+  totalPendingItems     Int      @default(0)
+  totalUrgentItems      Int      @default(0)
+  totalOverdueItems     Int      @default(0)
+  
+  // Priority breakdown
+  highPriorityItems     Int      @default(0)
+  mediumPriorityItems   Int      @default(0)
+  lowPriorityItems      Int      @default(0)
+  
+  // Time-based breakdown
+  itemsDueToday         Int      @default(0)
+  itemsDueThisWeek      Int      @default(0)
+  itemsDueThisMonth     Int      @default(0)
+  
+  // Workload indicators
+  workloadLevel         String   @default("MODERATE") // LOW, MODERATE, HIGH, CRITICAL
+  estimatedHoursToComplete Float?
+  
+  // Last updated
+  lastUpdated           DateTime @default(now())
+  createdAt             DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_pending_summaries")
+  @@unique([userId, date], name: "userId_date")
+  @@index([userId])
+  @@index([date])
+  @@index([workloadLevel])
+  @@index([totalPendingItems])
+  @@index([totalUrgentItems])
+  @@index([totalOverdueItems])
+}
+
+// ============================================================================
+// DOCUMENT MODEL (Existing)
+// ============================================================================
+
+model Document {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  caseId      String
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  case    Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploader User @relation(fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+  @@index([caseId])
+  @@index([uploadedBy])
+  @@index([mimeType])
+}
+
+// ============================================================================
+// NOTIFICATION MODEL
+// ============================================================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  message     String
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  entityType  String?  // TASK, HEARING, ORDER, CASE, SYSTEM
+  entityId    String?
+  metadata    String?  // JSON metadata
+  isRead      Boolean  @default(false)
+  scheduledAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([priority])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([isRead])
+  @@index([scheduledAt])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model File {
+  id          String    @id @default(cuid())
+  originalName String
+  mimeType    String
+  size        Int
+  hash        String    @unique // Content hash for deduplication
+  uploadedAt  DateTime  @default(now())
+  uploadedBy  String
+  caseId      String?
+  orderId     String?
+  tags        String    @default("[]") // JSON array of tags
+  description String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  uploader User  @relation(fields: [uploadedBy], references: [id])
+  case    Case? @relation(fields: [caseId], references: [id])
+  order   Order? @relation(fields: [orderId], references: [id])
+
+  @@map("files")
+  @@index([hash])
+  @@index([uploadedBy])
+  @@index([caseId])
+  @@index([orderId])
+  @@index([mimeType])
+  @@index([uploadedAt])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}

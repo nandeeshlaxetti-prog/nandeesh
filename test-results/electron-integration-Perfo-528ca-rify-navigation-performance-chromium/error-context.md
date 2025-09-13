@@ -1,0 +1,68 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - heading "LNN Legal Desktop" [level=1] [ref=e7]
+          - paragraph [ref=e8]: Legal Practice Management System
+        - generic [ref=e10]:
+          - text: "Status:"
+          - generic [ref=e11]: Connected
+    - main [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - heading "Welcome to LNN Legal Desktop" [level=2] [ref=e16]
+          - paragraph [ref=e17]: Your comprehensive legal practice management system is ready to use.
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - heading "Database" [level=3] [ref=e20]
+              - paragraph [ref=e21]: ✅ Connected and seeded
+            - generic [ref=e22]:
+              - heading "Web App" [level=3] [ref=e23]
+              - paragraph [ref=e24]: ✅ Running on localhost
+            - generic [ref=e25]:
+              - heading "Electron" [level=3] [ref=e26]
+              - paragraph [ref=e27]: ⚠️ Development mode
+        - generic [ref=e29]:
+          - heading "Quick Actions" [level=2] [ref=e30]
+          - generic [ref=e31]:
+            - button "📁 Cases Manage legal cases" [active] [ref=e32] [cursor=pointer]:
+              - generic [ref=e33] [cursor=pointer]:
+                - generic [ref=e34] [cursor=pointer]: 📁
+                - generic [ref=e35] [cursor=pointer]: Cases
+                - generic [ref=e36] [cursor=pointer]: Manage legal cases
+            - button "📋 Tasks Track tasks and deadlines" [ref=e37] [cursor=pointer]:
+              - generic [ref=e38] [cursor=pointer]:
+                - generic [ref=e39] [cursor=pointer]: 📋
+                - generic [ref=e40] [cursor=pointer]: Tasks
+                - generic [ref=e41] [cursor=pointer]: Track tasks and deadlines
+            - button "📅 Hearings Court schedules" [ref=e42] [cursor=pointer]:
+              - generic [ref=e43] [cursor=pointer]:
+                - generic [ref=e44] [cursor=pointer]: 📅
+                - generic [ref=e45] [cursor=pointer]: Hearings
+                - generic [ref=e46] [cursor=pointer]: Court schedules
+            - button "⚙️ Settings Configure system" [ref=e47] [cursor=pointer]:
+              - generic [ref=e48] [cursor=pointer]:
+                - generic [ref=e49] [cursor=pointer]: ⚙️
+                - generic [ref=e50] [cursor=pointer]: Settings
+                - generic [ref=e51] [cursor=pointer]: Configure system
+        - generic [ref=e53]:
+          - heading "System Status" [level=2] [ref=e54]
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - generic [ref=e57]: Database Connection
+              - generic [ref=e58]: ✅ Connected
+            - generic [ref=e59]:
+              - generic [ref=e60]: Sample Data
+              - generic [ref=e61]: ✅ Seeded
+            - generic [ref=e62]:
+              - generic [ref=e63]: Web Server
+              - generic [ref=e64]: ✅ Running
+            - generic [ref=e65]:
+              - generic [ref=e66]: Electron App
+              - generic [ref=e67]: ⚠️ Development Mode
+  - alert [ref=e68]
+```
