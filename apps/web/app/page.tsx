@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogoWithText } from './components/Logo'
+import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './contexts/AuthContext'
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const { user } = useAuth()
 
   useEffect(() => {
     setMounted(true)
@@ -19,29 +22,35 @@ export default function HomePage() {
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <LogoWithText size="lg" />
-              <p className="text-gray-600 mt-2">Legal Practice Management System</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-500">
-                Status: <span className="text-green-600 font-medium">Connected</span>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div>
+                <LogoWithText size="lg" />
+                <p className="text-gray-600 mt-2">Legal Practice Management System</p>
+                {user && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Welcome back, <span className="font-medium text-gray-700">{user.name}</span>
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-500">
+                  Status: <span className="text-green-600 font-medium">Connected</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -214,6 +223,7 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

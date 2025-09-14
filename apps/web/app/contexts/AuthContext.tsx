@@ -2,60 +2,58 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
-// Define AuthUser type locally to avoid import issues
-interface AuthUser {
-  id: string
+interface User {
   email: string
-  firstName: string
-  lastName: string
+  name: string
   role: string
-  status: string
-  isActive: boolean
-  lastLoginAt?: Date
+  loginTime: string
 }
 
 interface AuthContextType {
-  user: AuthUser | null
-  token: string | null
-  isLoading: boolean
+  user: User | null
   login: (email: string, password: string) => Promise<boolean>
-  logout: () => Promise<void>
+  logout: () => void
+  isLoading: boolean
   isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [token, setToken] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Check for existing session on mount
-    const storedToken = localStorage.getItem('authToken')
-    if (storedToken) {
-      setToken(storedToken)
-      // In a real implementation, you'd validate the token with the server
-      // For now, we'll just set it
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+      } catch (error) {
+        console.error('Error parsing stored user data:', error)
+        localStorage.removeItem('user')
+      }
     }
     setIsLoading(false)
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-        setToken(data.token)
-        localStorage.setItem('authToken', data.token)
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // For demo purposes, accept any email/password
+      if (email && password) {
+        const userData: User = {
+          email,
+          name: email.split('@')[0],
+          role: 'lawyer',
+          loginTime: new Date().toISOString()
+        }
+        
+        setUser(userData)
+        localStorage.setItem('user', JSON.stringify(userData))
         return true
       }
       return false
@@ -65,36 +63,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = async (): Promise<void> => {
-    try {
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token }),
-        })
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      setUser(null)
-      setToken(null)
-      localStorage.removeItem('authToken')
-    }
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem('user')
   }
 
-  const value: AuthContextType = {
+  const value = {
     user,
-    token,
-    isLoading,
     login,
     logout,
-    isAuthenticated: !!user && !!token,
+    isLoading,
+    isAuthenticated: !!user
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
