@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navigation from './components/Navigation'
-import { AuthProvider } from './contexts/AuthContext'
+import FirebaseAuthProvider from './components/FirebaseAuthProvider'
 
 export const metadata: Metadata = {
   title: 'LNN Legal Desktop',
@@ -16,10 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <AuthProvider>
+        <FirebaseAuthProvider>
           <Navigation />
           {children}
-        </AuthProvider>
+        </FirebaseAuthProvider>
       </body>
     </html>
   )
