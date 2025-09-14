@@ -1,4 +1,8 @@
 // Court Provider Interface and DTOs
+import { DistrictHighCourtProvider } from './providers/district-high-court-provider'
+import { JudgmentsProvider } from './providers/judgments-provider'
+import { ManualImportProvider } from './providers/manual-import-provider'
+import { ThirdPartyProvider } from './providers/third-party-provider'
 export interface CourtCaseDTO {
   cnr: string
   caseNumber: string

@@ -14,7 +14,7 @@ import {
   CaseDetailsDTO,
   HearingDTO,
   CauseListItemDTO
-} from './court-provider'
+} from '../court-provider'
 
 /**
  * District High Court Provider

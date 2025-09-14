@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorklogStatisticsSchema = exports.WorklogTimesheetSchema = exports.WorklogBulkUpdateSchema = exports.WorklogApprovalSchema = exports.WorklogWithTaskSchema = exports.WorklogWithCaseSchema = exports.WorklogWithUserSchema = exports.WorklogListSchema = exports.WorklogSearchSchema = exports.UpdateWorklogSchema = exports.CreateWorklogSchema = exports.WorklogSchema = exports.WorklogStatusSchema = exports.WorklogTypeSchema = void 0;
+exports.WorklogStatisticsSchema = exports.WorklogBulkUpdateSchema = exports.WorklogApprovalSchema = exports.WorklogWithTaskSchema = exports.WorklogWithCaseSchema = exports.WorklogWithUserSchema = exports.WorklogListSchema = exports.WorklogSearchSchema = exports.UpdateWorklogSchema = exports.CreateWorklogSchema = exports.WorklogSchema = exports.WorklogStatusSchema = exports.WorklogTypeSchema = void 0;
 const zod_1 = require("zod");
 // Worklog Type Enum
 exports.WorklogTypeSchema = zod_1.z.enum(['CASE_WORK', 'ADMIN_WORK', 'RESEARCH', 'MEETING', 'TRAVEL', 'OTHER']);
@@ -114,16 +114,6 @@ exports.WorklogBulkUpdateSchema = zod_1.z.object({
     status: exports.WorklogStatusSchema.optional(),
     isBillable: zod_1.z.boolean().optional(),
     approvedBy: zod_1.z.string().cuid().optional(),
-});
-// Worklog Timesheet Schema
-exports.WorklogTimesheetSchema = zod_1.z.object({
-    userId: zod_1.z.string().cuid(),
-    startDate: zod_1.z.date(),
-    endDate: zod_1.z.date(),
-    worklogs: zod_1.z.array(exports.WorklogListSchema),
-    totalHours: zod_1.z.number().positive(),
-    billableHours: zod_1.z.number().positive(),
-    totalAmount: zod_1.z.number().positive(),
 });
 // Worklog Statistics Schema
 exports.WorklogStatisticsSchema = zod_1.z.object({

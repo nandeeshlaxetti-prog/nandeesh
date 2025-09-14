@@ -1,14 +1,15 @@
 'use client';
 
-import { Project, ProjectType, projectTypeColors } from '../_types';
+import { Project, ProjectType, projectTypeColors, projectStatusColors, projectPriorityColors } from '../_types';
 
 interface ProjectTableProps {
   projects: Project[];
   onEditProject: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
+  getAssigneeName: (assigneeId?: string) => string;
 }
 
-export function ProjectTable({ projects, onEditProject, onDeleteProject }: ProjectTableProps) {
+export function ProjectTable({ projects, onEditProject, onDeleteProject, getAssigneeName }: ProjectTableProps) {
   const handleDelete = (projectId: string, projectName: string) => {
     if (confirm(`Are you sure you want to delete "${projectName}"?`)) {
       onDeleteProject(projectId);
@@ -44,7 +45,19 @@ export function ProjectTable({ projects, onEditProject, onDeleteProject }: Proje
                 Type
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Priority
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Client
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assignee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Due Date
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created
@@ -77,8 +90,32 @@ export function ProjectTable({ projects, onEditProject, onDeleteProject }: Proje
                     {project.type}
                   </span>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${projectStatusColors[project.status]}`}>
+                    {project.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${projectPriorityColors[project.priority]}`}>
+                    {project.priority}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {project.clientName || '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {project.assigneeId ? getAssigneeName(project.assigneeId) : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {project.dueDate ? (
+                    <span className={`${
+                      new Date(project.dueDate) < new Date() && project.status !== 'completed'
+                        ? 'text-red-600 font-medium'
+                        : 'text-gray-900'
+                    }`}>
+                      {new Date(project.dueDate).toLocaleDateString()}
+                    </span>
+                  ) : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(project.createdAt).toLocaleDateString()}

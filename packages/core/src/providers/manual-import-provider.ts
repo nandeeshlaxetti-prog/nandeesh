@@ -626,4 +626,12 @@ export class ManualImportProvider implements CourtProvider {
     
     this.importedOrders.set('MANUAL001', sampleOrders)
   }
+
+  private generateCaseNumber(cnr: string): string {
+    // Generate a case number based on CNR
+    // Extract year and create a formatted case number
+    const year = new Date().getFullYear()
+    const cnrSuffix = cnr.substring(cnr.length - 4) || '0001'
+    return `${year}/MANUAL/${cnrSuffix}`
+  }
 }

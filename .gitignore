@@ -1,33 +1,31 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.pnpm-debug.log*
 
 # Build outputs
 dist/
 .next/
 out/
+build/
 
-# Environment files
+# Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Database
-*.db
-*.db-journal
-
 # Logs
-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
 *.pid.lock
@@ -42,11 +40,23 @@ coverage/
 # Dependency directories
 jspm_packages/
 
+# TypeScript cache
+*.tsbuildinfo
+
 # Optional npm cache directory
 .npm
 
 # Optional eslint cache
 .eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -61,33 +71,31 @@ jspm_packages/
 .cache
 .parcel-cache
 
-# next.js build output
+# Next.js build output
 .next
 
-# nuxt.js build output
+# Nuxt.js build / generate output
 .nuxt
 
-# vuepress build output
-.vuepress/dist
+# Gatsby files
+.cache/
+public
 
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
+# Storybook build outputs
+.out
+.storybook-out
+storybook-static
 
 # Temporary folders
 tmp/
 temp/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # OS generated files
 .DS_Store
@@ -97,3 +105,27 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Test results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Desktop app builds (not needed for web deployment)
+apps/desktop/dist/
+apps/desktop/build/
+
+# Package manager lock files (keep pnpm-lock.yaml)
+package-lock.json
+yarn.lock
+
+# Vercel
+.vercel
+
+# Local development
+.env.example

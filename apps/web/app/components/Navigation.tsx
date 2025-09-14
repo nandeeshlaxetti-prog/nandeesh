@@ -13,6 +13,7 @@ export default function Navigation() {
     { name: 'Cases', href: '/cases', icon: '📁' },
     { name: 'Tasks', href: '/tasks', icon: '📋' },
     { name: 'Projects', href: '/projects', icon: '📊' },
+    { name: 'Clients', href: '/contacts', icon: '👤' },
     { name: 'Team', href: '/team', icon: '👥' },
     { name: 'Integrations', href: '/integrations', icon: '🔗' },
     { name: 'Settings', href: '/settings', icon: '⚙️' },

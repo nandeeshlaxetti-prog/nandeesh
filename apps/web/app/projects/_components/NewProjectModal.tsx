@@ -1,41 +1,86 @@
 'use client';
 
-import { useState } from 'react';
-import { Project, ProjectType } from '../_types';
+import { useState, useEffect } from 'react';
+import { Project, ProjectType, ProjectStatus, ProjectPriority } from '../_types';
 
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddProject: (project: Project) => void;
+  onAddProject: (project: {
+    name: string;
+    type: ProjectType;
+    status: ProjectStatus;
+    priority: ProjectPriority;
+    clientName?: string;
+    description?: string;
+    assigneeId?: string;
+    dueDate?: string;
+  }) => void;
   editingProject?: Project | null;
+  availableAssignees: Array<{
+    id: string;
+    name: string;
+    role: string;
+    email?: string;
+  }>;
 }
 
-export function NewProjectModal({ isOpen, onClose, onAddProject, editingProject }: NewProjectModalProps) {
-  const [name, setName] = useState(editingProject?.name || '');
-  const [type, setType] = useState<ProjectType>(editingProject?.type || 'Client');
-  const [clientName, setClientName] = useState(editingProject?.clientName || '');
-  const [description, setDescription] = useState(editingProject?.description || '');
+export function NewProjectModal({ isOpen, onClose, onAddProject, editingProject, availableAssignees }: NewProjectModalProps) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<ProjectType>('Client');
+  const [status, setStatus] = useState<ProjectStatus>('planning');
+  const [priority, setPriority] = useState<ProjectPriority>('medium');
+  const [clientName, setClientName] = useState('');
+  const [description, setDescription] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  useEffect(() => {
+    if (editingProject) {
+      setName(editingProject.name);
+      setType(editingProject.type);
+      setStatus(editingProject.status);
+      setPriority(editingProject.priority);
+      setClientName(editingProject.clientName || '');
+      setDescription(editingProject.description || '');
+      setAssigneeId(editingProject.assigneeId || '');
+      setDueDate(editingProject.dueDate || '');
+    } else {
+      setName('');
+      setType('Client');
+      setStatus('planning');
+      setPriority('medium');
+      setClientName('');
+      setDescription('');
+      setAssigneeId('');
+      setDueDate('');
+    }
+  }, [editingProject, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const project: Project = {
-      id: editingProject?.id || Date.now().toString(),
+    onAddProject({
       name: name.trim(),
       type,
+      status,
+      priority,
       clientName: clientName.trim() || undefined,
       description: description.trim() || undefined,
-      createdAt: editingProject?.createdAt || new Date().toISOString(),
-    };
+      assigneeId: assigneeId || undefined,
+      dueDate: dueDate || undefined,
+    });
 
-    onAddProject(project);
-    
     // Reset form
     setName('');
     setType('Client');
+    setStatus('planning');
+    setPriority('medium');
     setClientName('');
     setDescription('');
+    setAssigneeId('');
+    setDueDate('');
     onClose();
   };
 
@@ -99,6 +144,40 @@ export function NewProjectModal({ isOpen, onClose, onAddProject, editingProject 
           </div>
 
           <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              Status *
+            </label>
+            <select
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="on-hold">On Hold</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+              Priority *
+            </label>
+            <select
+              id="priority"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as ProjectPriority)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-1">
               Client Name
             </label>
@@ -123,6 +202,38 @@ export function NewProjectModal({ isOpen, onClose, onAddProject, editingProject 
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter project description (optional)"
               rows={3}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="assignee" className="block text-sm font-medium text-gray-700 mb-1">
+              Assignee
+            </label>
+            <select
+              id="assignee"
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a team member (optional)</option>
+              {availableAssignees.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name} - {member.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+              Due Date
+            </label>
+            <input
+              id="dueDate"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 

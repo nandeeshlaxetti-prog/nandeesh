@@ -134,6 +134,17 @@ export default function HomePage() {
                 </button>
                 
                 <button 
+                  onClick={() => handleNavigation('/contacts')}
+                  className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors cursor-pointer"
+                >
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">👤</div>
+                    <div className="font-medium text-gray-900">Clients</div>
+                    <div className="text-sm text-gray-500">Client management</div>
+                  </div>
+                </button>
+                
+                <button 
                   onClick={() => handleNavigation('/team')}
                   className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors cursor-pointer"
                 >

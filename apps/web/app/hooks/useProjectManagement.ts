@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Project, seedProjects } from '../projects/_types';
+import { Project, seedProjects, ProjectStatus, ProjectPriority } from '../projects/_types';
+import { useTeamManagement } from './useTeamManagement';
 
 const LOCAL_STORAGE_KEY = 'lnn-legal-projects';
 
 export function useProjectManagement() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const { employees: teamMembers, isLoaded: teamLoaded } = useTeamManagement();
 
   useEffect(() => {
     try {
@@ -35,24 +37,71 @@ export function useProjectManagement() {
     }
   }, [projects, isLoaded]);
 
-  const addProject = (newProject: Omit<Project, 'id'>) => {
-    setProjects(prev => {
-      const projectWithId = { ...newProject, id: Date.now().toString() };
-      return [...prev, projectWithId];
-    });
+  const addProject = (newProject: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const projectWithMetadata: Project = {
+      ...newProject,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setProjects(prev => [...prev, projectWithMetadata]);
   };
 
-  const updateProject = (projectId: string, updatedProject: Omit<Project, 'id'>) => {
+  const updateProject = (projectId: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>) => {
     setProjects(prev =>
-      prev.map(proj =>
-        proj.id === projectId ? { ...updatedProject, id: projectId } : proj
+      prev.map(project =>
+        project.id === projectId
+          ? { ...project, ...updates, updatedAt: new Date().toISOString() }
+          : project
       )
     );
   };
 
   const deleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(proj => proj.id !== projectId));
+    setProjects(prev => prev.filter(project => project.id !== projectId));
   };
 
-  return { projects, isLoaded, addProject, updateProject, deleteProject };
+  const getProjectsByStatus = (status: ProjectStatus) => {
+    return projects.filter(project => project.status === status);
+  };
+
+  const getProjectsByPriority = (priority: ProjectPriority) => {
+    return projects.filter(project => project.priority === priority);
+  };
+
+  const searchProjects = (query: string) => {
+    const lowercaseQuery = query.toLowerCase();
+    return projects.filter(project =>
+      project.name.toLowerCase().includes(lowercaseQuery) ||
+      (project.description && project.description.toLowerCase().includes(lowercaseQuery)) ||
+      (project.clientName && project.clientName.toLowerCase().includes(lowercaseQuery))
+    );
+  };
+
+  const getAvailableAssignees = () => {
+    return teamMembers.map(member => ({
+      id: member.id,
+      name: member.name,
+      role: member.role,
+      email: member.email
+    }));
+  };
+
+  const getAssigneeById = (assigneeId: string) => {
+    return teamMembers.find(member => member.id === assigneeId);
+  };
+
+  return {
+    projects,
+    isLoaded: isLoaded && teamLoaded,
+    teamMembers,
+    addProject,
+    updateProject,
+    deleteProject,
+    getProjectsByStatus,
+    getProjectsByPriority,
+    searchProjects,
+    getAvailableAssignees,
+    getAssigneeById,
+  };
 }

@@ -860,7 +860,7 @@ export class KarnatakaHighCourtProvider implements CourtProvider {
   }
   
   private getBenchLocation(bench: string): string {
-    const locations = {
+    const locations: Record<string, string> = {
       'bengaluru': 'Bengaluru',
       'dharwad': 'Dharwad',
       'kalaburagi': 'Kalaburagi'

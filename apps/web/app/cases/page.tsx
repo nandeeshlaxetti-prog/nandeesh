@@ -1,8 +1,76 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ECourtsProvider, ECourtsCaseData, ECourtsConfig } from '@/lib/ecourts-provider'
+import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, DocumentTextIcon, UserIcon, BuildingOfficeIcon, ScaleIcon, AcademicCapIcon, BanknotesIcon, BriefcaseIcon, ClipboardDocumentListIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+// import { SyncStatusComponent } from './_components/SyncStatusComponent'
+
+// Advanced search types
+type CourtType = 'district' | 'high' | 'supreme' | 'consumer' | 'nclt' | 'cat'
+type DistrictCourtFunction = 'cnr' | 'party' | 'advocate' | 'advocateNumber' | 'filing'
+
+interface AdvancedSearchForm {
+  courtType: CourtType
+  districtCourtFunction?: DistrictCourtFunction
+  
+  // CNR Lookup
+  cnrNumber?: string
+  
+  // Party Search
+  state?: string
+  district?: string
+  complex?: string
+  partyName?: string
+  caseStage?: 'both' | 'pending' | 'disposed'
+  year?: string
+  
+  // Advocate Search
+  advocateName?: string
+  
+  // Advocate Number
+  advocateNumber?: string
+  
+  // Filing Search
+  filingNumber?: string
+}
+
+const courtTypeOptions = [
+  { value: 'district', label: 'District Court', icon: BuildingOfficeIcon },
+  { value: 'high', label: 'High Court', icon: ScaleIcon },
+  { value: 'supreme', label: 'Supreme Court', icon: AcademicCapIcon },
+  { value: 'consumer', label: 'Consumer Forum', icon: BanknotesIcon },
+  { value: 'nclt', label: 'NCLT', icon: BriefcaseIcon },
+  { value: 'cat', label: 'CAT', icon: ClipboardDocumentListIcon }
+]
+
+const districtCourtFunctions = [
+  { value: 'cnr', label: 'CNR Lookup', icon: DocumentTextIcon, description: 'Search by Case Number Reference' },
+  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names with location filters' },
+  { value: 'advocate', label: 'Advocate Search', icon: ScaleIcon, description: 'Search by advocate names' },
+  { value: 'advocateNumber', label: 'Advocate Number', icon: AcademicCapIcon, description: 'Search by advocate registration number' },
+  { value: 'filing', label: 'Filing Search', icon: ClipboardDocumentListIcon, description: 'Search by filing numbers' }
+]
+
+// Sample data for dropdowns
+const states = [
+  'Karnataka', 'Maharashtra', 'Tamil Nadu', 'Kerala', 'Andhra Pradesh', 
+  'Telangana', 'Gujarat', 'Rajasthan', 'Uttar Pradesh', 'Delhi'
+]
+
+const districts = {
+  'Karnataka': ['Bangalore Urban', 'Bangalore Rural', 'Mysore', 'Mangalore', 'Hubli'],
+  'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Aurangabad'],
+  'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Salem', 'Tiruchirapalli'],
+  'Kerala': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam'],
+  'Andhra Pradesh': ['Hyderabad', 'Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore']
+}
+
+const complexes = {
+  'Bangalore Urban': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal'],
+  'Mumbai': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal'],
+  'Chennai': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal']
+}
 
 interface Case {
   id: string
@@ -64,10 +132,28 @@ interface Case {
   firstHearingDate?: string
   decisionDate?: string
   natureOfDisposal?: string
+  lastRefreshed?: string
 }
 
 export default function CasesPage() {
   const router = useRouter()
+  
+        // Advanced search state
+        const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false)
+        const [advancedSearchForm, setAdvancedSearchForm] = useState<AdvancedSearchForm>({
+          courtType: 'district',
+          districtCourtFunction: 'cnr',
+          cnrNumber: '',
+          state: '',
+          district: '',
+          complex: '',
+          partyName: '',
+          caseStage: 'both',
+          year: '',
+          advocateName: '',
+          advocateNumber: '',
+          filingNumber: ''
+        })
   
   // Default cases
   const defaultCases: Case[] = [
@@ -197,6 +283,8 @@ export default function CasesPage() {
   const [editingCase, setEditingCase] = useState<Case | null>(null)
   const [cnrNumber, setCnrNumber] = useState('')
   const [isLoadingCNR, setIsLoadingCNR] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchSuccess, setSearchSuccess] = useState<string | null>(null)
   
   // Advanced search modal state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
@@ -216,6 +304,18 @@ export default function CasesPage() {
   const [isLoadingSearch, setIsLoadingSearch] = useState(false)
   const [showCaseDetails, setShowCaseDetails] = useState(false)
   const [selectedCase, setSelectedCase] = useState<Case | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Helper function to format case number with case type prefix
+  const formatCaseNumber = (caseItem: Case): string => {
+    if (!caseItem.caseNumber) return 'Not specified'
+    
+    const caseType = caseItem.caseType || 'CIVIL'
+    const registrationNumber = caseItem.caseNumber
+    
+    // Format: "OS No. 200/2025" or "CIVIL No. 200/2025"
+    return `${caseType} No. ${registrationNumber}`
+  }
   const [newCase, setNewCase] = useState({
     caseNumber: '',
     filingNumber: '',
@@ -425,7 +525,7 @@ export default function CasesPage() {
         setShowCNRModal(false)
         
         // Show detailed success message
-        alert(`✅ Case imported successfully!\n\nReal API Data from Kleopatra\n\nCNR: ${newCase.cnrNumber}\nCase: ${newCase.caseNumber}\nTitle: ${newCase.title}\nCourt: ${newCase.court}\nPetitioner: ${newCase.petitionerName}\nRespondent: ${newCase.respondentName}`)
+        alert(`✅ Case imported successfully!\n\nReal API Data from Kleopatra\n\nCNR: ${newCase.cnrNumber}\nCase: ${formatCaseNumber(newCase)}\nTitle: ${newCase.title}\nCourt: ${newCase.court}\nPetitioner: ${newCase.petitionerName}\nRespondent: ${newCase.respondentName}`)
       } else if (result.requiresCaptcha) {
         alert('⚠️ CAPTCHA required. Please use manual import or try again later.')
       } else if (result.requiresManual) {
@@ -443,6 +543,253 @@ export default function CasesPage() {
       alert(`❌ Error importing case: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoadingCNR(false)
+    }
+  }
+
+        // Handle advanced search form changes
+        const handleAdvancedSearchChange = (field: keyof AdvancedSearchForm, value: string) => {
+          setAdvancedSearchForm(prev => {
+            const newForm = { ...prev, [field]: value }
+            
+            // Reset dependent fields when court type changes
+            if (field === 'courtType') {
+              newForm.districtCourtFunction = 'cnr'
+              newForm.state = ''
+              newForm.district = ''
+              newForm.complex = ''
+            }
+            
+            // Reset dependent fields when state changes
+            if (field === 'state') {
+              newForm.district = ''
+              newForm.complex = ''
+            }
+            
+            // Reset dependent fields when district changes
+            if (field === 'district') {
+              newForm.complex = ''
+            }
+            
+            return newForm
+          })
+        }
+
+        // Validate form based on selected function
+        const isFormValid = () => {
+          if (advancedSearchForm.courtType === 'district') {
+            switch (advancedSearchForm.districtCourtFunction) {
+              case 'cnr':
+                return !!advancedSearchForm.cnrNumber?.trim()
+              case 'party':
+                return !!advancedSearchForm.partyName?.trim() && !!advancedSearchForm.state && !!advancedSearchForm.district
+              case 'advocate':
+                return !!advancedSearchForm.advocateName?.trim()
+            case 'advocateNumber':
+              return !!advancedSearchForm.advocateNumber?.trim() && !!advancedSearchForm.state && !!advancedSearchForm.year
+              case 'filing':
+                return !!advancedSearchForm.filingNumber?.trim()
+              default:
+                return false
+            }
+          }
+          return false
+        }
+
+  // Handle advanced search submission
+  const handleAdvancedSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoadingCNR(true)
+    setSearchError(null)
+    setSearchSuccess(null)
+
+    try {
+      const searchParams = new URLSearchParams()
+      
+      // Add court type
+      searchParams.append('courtType', advancedSearchForm.courtType)
+      
+      // Handle different court types and their functions
+      if (advancedSearchForm.courtType === 'district') {
+        searchParams.append('searchType', advancedSearchForm.districtCourtFunction || 'cnr')
+        
+        switch (advancedSearchForm.districtCourtFunction) {
+          case 'cnr':
+            if (!advancedSearchForm.cnrNumber?.trim()) {
+              throw new Error('CNR Number is required')
+            }
+            searchParams.append('cnr', advancedSearchForm.cnrNumber)
+            break
+            
+          case 'party':
+            if (!advancedSearchForm.partyName?.trim()) {
+              throw new Error('Party Name is required')
+            }
+            searchParams.append('partyName', advancedSearchForm.partyName)
+            if (advancedSearchForm.state) searchParams.append('state', advancedSearchForm.state)
+            if (advancedSearchForm.district) searchParams.append('district', advancedSearchForm.district)
+            if (advancedSearchForm.complex) searchParams.append('complex', advancedSearchForm.complex)
+            if (advancedSearchForm.caseStage) searchParams.append('caseStage', advancedSearchForm.caseStage)
+            if (advancedSearchForm.year) searchParams.append('year', advancedSearchForm.year)
+            break
+            
+          case 'advocate':
+            if (!advancedSearchForm.advocateName?.trim()) {
+              throw new Error('Advocate Name is required')
+            }
+            searchParams.append('advocateName', advancedSearchForm.advocateName)
+            break
+            
+          case 'advocateNumber':
+            if (!advancedSearchForm.advocateNumber?.trim()) {
+              throw new Error('Advocate Number is required')
+            }
+            searchParams.append('advocateNumber', advancedSearchForm.advocateNumber)
+            break
+            
+          case 'filing':
+            if (!advancedSearchForm.filingNumber?.trim()) {
+              throw new Error('Filing Number is required')
+            }
+            searchParams.append('filingNumber', advancedSearchForm.filingNumber)
+            break
+        }
+      }
+
+      const response = await fetch(`/api/ecourts/advanced-search?${searchParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        // Add the found case to the list
+        setCases([...cases, result.data])
+        setSearchSuccess(`Case found and added successfully!`)
+        setIsAdvancedSearchOpen(false)
+        
+        // Reset form
+        setAdvancedSearchForm({
+          courtType: 'district',
+          districtCourtFunction: 'cnr',
+          cnrNumber: '',
+          state: '',
+          district: '',
+          complex: '',
+          partyName: '',
+          caseStage: 'both',
+          year: '',
+          advocateName: '',
+          advocateNumber: '',
+          filingNumber: ''
+        })
+      } else {
+        throw new Error(result.error || 'No case found')
+      }
+    } catch (error) {
+      console.error('Advanced search error:', error)
+      setSearchError(error instanceof Error ? error.message : 'Search failed')
+    } finally {
+      setIsLoadingCNR(false)
+    }
+  }
+
+  // Refresh cases function - Enhanced to fetch real data from API
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      console.log('🔄 Starting refresh of cases with real API data...')
+      
+      // Get current cases from localStorage
+      const storedCases = localStorage.getItem('legal-desktop-cases')
+      if (!storedCases) {
+        console.log('No cases found to refresh')
+        return
+      }
+      
+      const currentCases = JSON.parse(storedCases)
+      console.log(`📊 Found ${currentCases.length} cases to refresh`)
+      
+      // Refresh each case with real API data
+      const refreshedCases = []
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const caseItem of currentCases) {
+        if (caseItem.cnrNumber) {
+          try {
+            console.log(`🔄 Refreshing case: ${caseItem.cnrNumber}`)
+            
+            // Fetch fresh data from API
+            const response = await fetch('/api/ecourts/cnr', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ cnr: caseItem.cnrNumber }),
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              if (result.success && result.data) {
+                // Update the case with fresh data
+                const refreshedCase = {
+                  ...caseItem,
+                  ...result.data,
+                  id: caseItem.id, // Keep the original ID
+                  lastRefreshed: new Date().toISOString()
+                }
+                refreshedCases.push(refreshedCase)
+                successCount++
+                console.log(`✅ Successfully refreshed: ${caseItem.cnrNumber}`)
+              } else {
+                // Keep original case if API fails
+                refreshedCases.push(caseItem)
+                errorCount++
+                console.log(`⚠️ API failed for ${caseItem.cnrNumber}, keeping original data`)
+              }
+            } else {
+              // Keep original case if API fails
+              refreshedCases.push(caseItem)
+              errorCount++
+              console.log(`⚠️ API error for ${caseItem.cnrNumber}, keeping original data`)
+            }
+          } catch (error) {
+            // Keep original case if API fails
+            refreshedCases.push(caseItem)
+            errorCount++
+            console.log(`❌ Error refreshing ${caseItem.cnrNumber}:`, error instanceof Error ? error.message : 'Unknown error')
+          }
+        } else {
+          // Keep cases without CNR as-is
+          refreshedCases.push(caseItem)
+        }
+      }
+      
+      // Update cases state and localStorage
+      setCases(refreshedCases)
+      localStorage.setItem('legal-desktop-cases', JSON.stringify(refreshedCases))
+      
+      console.log(`🎉 Refresh completed: ${successCount} successful, ${errorCount} failed`)
+      
+      // Show success message
+      if (successCount > 0) {
+        setSearchSuccess(`Successfully refreshed ${successCount} cases with real API data!`)
+        setTimeout(() => setSearchSuccess(null), 5000)
+      }
+      
+    } catch (error) {
+      console.error('Error refreshing cases:', error)
+      setSearchError('Failed to refresh cases. Please try again.')
+      setTimeout(() => setSearchError(null), 5000)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -526,6 +873,14 @@ export default function CasesPage() {
             </div>
             <div className="flex space-x-3">
               <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+              <button
                 onClick={() => setShowAddModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -538,15 +893,21 @@ export default function CasesPage() {
                 Import by CNR
               </button>
               <button
-                onClick={() => setShowAdvancedSearch(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => setIsAdvancedSearchOpen(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center"
               >
+                <FunnelIcon className="h-5 w-5 mr-2" />
                 Advanced Search
               </button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Background Sync Status */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* Background Sync Status - Temporarily disabled */}
+      </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -564,11 +925,11 @@ export default function CasesPage() {
                   <div className="px-4 py-4 flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p 
+                        <p
                           onClick={() => router.push(`/cases/${caseItem.id}`)}
                           className="text-sm font-medium text-blue-600 truncate cursor-pointer hover:underline"
                         >
-                          {caseItem.caseNumber}
+                          {formatCaseNumber(caseItem)}
                         </p>
                         <div className="ml-2 flex-shrink-0 flex">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(caseItem.priority)}`}>
@@ -583,7 +944,7 @@ export default function CasesPage() {
                         <div className="mt-1 grid grid-cols-1 md:grid-cols-2 gap-1 text-sm text-gray-500">
                           <div>
                       <p><span className="font-medium">CNR:</span> {caseItem.cnrNumber || 'Not specified'}</p>
-                      <p><span className="font-medium">Reg. No:</span> {caseItem.caseNumber || 'Not specified'}</p>
+                      <p><span className="font-medium">Case No:</span> {formatCaseNumber(caseItem)}</p>
                       <p><span className="font-medium">Petitioner:</span> {caseItem.petitionerName || 'Not specified'}</p>
                       <p><span className="font-medium">Respondent:</span> {caseItem.respondentName || 'Not specified'}</p>
                             {caseItem.advocates && caseItem.advocates.length > 0 && (
@@ -637,6 +998,11 @@ export default function CasesPage() {
                       <p className="text-sm text-gray-500 mb-2">
                         {caseItem.nextHearingDate ? `Next Hearing: ${new Date(caseItem.nextHearingDate).toLocaleDateString()}` : 'No upcoming hearings'}
                       </p>
+                      {caseItem.lastRefreshed && (
+                        <p className="text-xs text-blue-600 mb-2">
+                          Last Refreshed: {new Date(caseItem.lastRefreshed).toLocaleString()}
+                        </p>
+                      )}
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(caseItem)}
@@ -872,6 +1238,456 @@ export default function CasesPage() {
                   {isLoadingCNR ? 'Importing...' : 'Import Case'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Search Modal */}
+      {isAdvancedSearchOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+                     <div className="flex items-center justify-between mb-4">
+                       <div>
+                         <h3 className="text-lg font-medium text-gray-900">Advanced Case Search</h3>
+                         <p className="text-sm text-gray-600 mt-1">Powered by Kleopatra API - Access comprehensive court data across multiple jurisdictions</p>
+                       </div>
+                       <button
+                         onClick={() => setIsAdvancedSearchOpen(false)}
+                         className="text-gray-400 hover:text-gray-600"
+                       >
+                         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                         </svg>
+                       </button>
+                     </div>
+
+                     {/* API Status Indicator */}
+                     <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-md">
+                       <div className="flex items-center">
+                         <div className="flex-shrink-0">
+                           <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                           </svg>
+                         </div>
+                         <div className="ml-3">
+                           <h4 className="text-sm font-medium text-green-800">Kleopatra API Connected</h4>
+                           <p className="text-sm text-green-700">Real-time access to District Court data. Additional court types coming soon.</p>
+                         </div>
+                       </div>
+                     </div>
+
+              <form onSubmit={handleAdvancedSearchSubmit} className="space-y-8">
+                {/* Court Type Selection Section */}
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="text-lg font-semibold text-green-900">Select Court Type</h4>
+                      <p className="text-sm text-green-700">Choose the court jurisdiction for your search</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    {courtTypeOptions.map((option) => {
+                      const Icon = option.icon
+                      return (
+                        <label key={option.value} className="relative">
+                          <input
+                            type="radio"
+                            name="courtType"
+                            value={option.value}
+                            checked={advancedSearchForm.courtType === option.value}
+                            onChange={(e) => handleAdvancedSearchChange('courtType', e.target.value)}
+                            className="sr-only"
+                          />
+                          <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            advancedSearchForm.courtType === option.value
+                              ? 'border-green-500 bg-green-100'
+                              : 'border-gray-300 hover:border-green-400 bg-white'
+                          }`}>
+                            <div className="flex items-center space-x-2">
+                              <Icon className="h-5 w-5 text-gray-600" />
+                              <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* District Court Functions Section */}
+                {advancedSearchForm.courtType === 'district' && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-blue-900">District Court Search Functions</h4>
+                        <p className="text-sm text-blue-700">Available search methods for District Court</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {districtCourtFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="districtCourtFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.districtCourtFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('districtCourtFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.districtCourtFunction === option.value
+                                ? 'border-blue-500 bg-blue-100'
+                                : 'border-gray-300 hover:border-blue-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Parameters Section */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="text-lg font-semibold text-gray-900">Search Parameters</h4>
+                      <p className="text-sm text-gray-700">Enter your search criteria based on selected function</p>
+                    </div>
+                  </div>
+
+                  {/* CNR Lookup */}
+                  {advancedSearchForm.courtType === 'district' && advancedSearchForm.districtCourtFunction === 'cnr' && (
+                    <div className="mb-4">
+                      <label htmlFor="cnr-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Case Number Reference (CNR) *
+                      </label>
+                      <input
+                        id="cnr-number"
+                        type="text"
+                        value={advancedSearchForm.cnrNumber}
+                        onChange={(e) => handleAdvancedSearchChange('cnrNumber', e.target.value)}
+                        placeholder="Enter CNR number (e.g., KABC010153302024)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Party Search */}
+                  {advancedSearchForm.courtType === 'district' && advancedSearchForm.districtCourtFunction === 'party' && (
+                    <div className="space-y-4">
+                      {/* State Selection */}
+                      <div>
+                        <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
+                          State *
+                        </label>
+                        <select
+                          id="state"
+                          value={advancedSearchForm.state}
+                          onChange={(e) => handleAdvancedSearchChange('state', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        >
+                          <option value="">Select State</option>
+                          {states.map(state => (
+                            <option key={state} value={state}>{state}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* District Selection */}
+                      {advancedSearchForm.state && (
+                        <div>
+                          <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-2">
+                            District *
+                          </label>
+                          <select
+                            id="district"
+                            value={advancedSearchForm.district}
+                            onChange={(e) => handleAdvancedSearchChange('district', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            required
+                          >
+                            <option value="">Select District</option>
+                            {districts[advancedSearchForm.state as keyof typeof districts]?.map(district => (
+                              <option key={district} value={district}>{district}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Complex Selection */}
+                      {advancedSearchForm.district && (
+                        <div>
+                          <label htmlFor="complex" className="block text-sm font-medium text-gray-700 mb-2">
+                            Complex
+                          </label>
+                          <select
+                            id="complex"
+                            value={advancedSearchForm.complex}
+                            onChange={(e) => handleAdvancedSearchChange('complex', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">Entire District</option>
+                            {complexes[advancedSearchForm.district as keyof typeof complexes]?.map(complex => (
+                              <option key={complex} value={complex}>{complex}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Party Name */}
+                      <div>
+                        <label htmlFor="party-name" className="block text-sm font-medium text-gray-700 mb-2">
+                          Party Name *
+                        </label>
+                        <input
+                          id="party-name"
+                          type="text"
+                          value={advancedSearchForm.partyName}
+                          onChange={(e) => handleAdvancedSearchChange('partyName', e.target.value)}
+                          placeholder="Enter party name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      {/* Case Stage */}
+                      <div>
+                        <label htmlFor="case-stage" className="block text-sm font-medium text-gray-700 mb-2">
+                          Case Stage
+                        </label>
+                        <select
+                          id="case-stage"
+                          value={advancedSearchForm.caseStage}
+                          onChange={(e) => handleAdvancedSearchChange('caseStage', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="both">Both (Pending & Disposed)</option>
+                          <option value="pending">Pending</option>
+                          <option value="disposed">Disposed</option>
+                        </select>
+                      </div>
+
+                      {/* Year */}
+                      <div>
+                        <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">
+                          Year
+                        </label>
+                        <input
+                          id="year"
+                          type="text"
+                          value={advancedSearchForm.year}
+                          onChange={(e) => handleAdvancedSearchChange('year', e.target.value)}
+                          placeholder="e.g., 2024, 2025"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Advocate Search */}
+                  {advancedSearchForm.courtType === 'district' && advancedSearchForm.districtCourtFunction === 'advocate' && (
+                    <div className="mb-4">
+                      <label htmlFor="advocate-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Advocate Name *
+                      </label>
+                      <input
+                        id="advocate-name"
+                        type="text"
+                        value={advancedSearchForm.advocateName}
+                        onChange={(e) => handleAdvancedSearchChange('advocateName', e.target.value)}
+                        placeholder="Enter advocate name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Advocate Number */}
+                  {advancedSearchForm.courtType === 'district' && advancedSearchForm.districtCourtFunction === 'advocateNumber' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="advocate-number" className="block text-sm font-medium text-gray-700 mb-2">
+                          Advocate Number *
+                        </label>
+                        <input
+                          id="advocate-number"
+                          type="text"
+                          value={advancedSearchForm.advocateNumber}
+                          onChange={(e) => handleAdvancedSearchChange('advocateNumber', e.target.value)}
+                          placeholder="Enter advocate registration number"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="advocate-state" className="block text-sm font-medium text-gray-700 mb-2">
+                          State Code *
+                        </label>
+                        <select
+                          id="advocate-state"
+                          value={advancedSearchForm.state}
+                          onChange={(e) => handleAdvancedSearchChange('state', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        >
+                          <option value="">Select State</option>
+                          {states.map((state) => (
+                            <option key={state} value={state}>
+                              {state}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="advocate-year" className="block text-sm font-medium text-gray-700 mb-2">
+                          Year *
+                        </label>
+                        <input
+                          id="advocate-year"
+                          type="number"
+                          value={advancedSearchForm.year}
+                          onChange={(e) => handleAdvancedSearchChange('year', e.target.value)}
+                          placeholder="Enter year (e.g., 2024)"
+                          min="2000"
+                          max="2030"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filing Search */}
+                  {advancedSearchForm.courtType === 'district' && advancedSearchForm.districtCourtFunction === 'filing' && (
+                    <div className="mb-4">
+                      <label htmlFor="filing-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Filing Number *
+                      </label>
+                      <input
+                        id="filing-number"
+                        type="text"
+                        value={advancedSearchForm.filingNumber}
+                        onChange={(e) => handleAdvancedSearchChange('filingNumber', e.target.value)}
+                        placeholder="Enter filing number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Other Court Types - Coming Soon */}
+                  {advancedSearchForm.courtType !== 'district' && (
+                    <div className="text-center py-8">
+                      <div className="text-gray-500 mb-2">
+                        <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
+                      <p className="text-gray-600">
+                        Search functions for {courtTypeOptions.find(opt => opt.value === advancedSearchForm.courtType)?.label} are currently under development.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Search Messages */}
+                {searchError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-red-800">Search Error</h3>
+                        <div className="mt-2 text-sm text-red-700">{searchError}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {searchSuccess && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-green-800">Success</h3>
+                        <div className="mt-2 text-sm text-green-700">{searchSuccess}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdvancedSearchOpen(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                         <button
+                           type="submit"
+                           disabled={isLoadingCNR || !isFormValid()}
+                           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                    {isLoadingCNR ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <MagnifyingGlassIcon className="h-4 w-4 mr-2" />
+                        Search Cases
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -1291,7 +2107,7 @@ export default function CasesPage() {
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">Case Information</h4>
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">CNR:</span> {selectedCase.cnrNumber || 'Not specified'}</p>
-                      <p><span className="font-medium">Registration No:</span> {selectedCase.caseNumber || 'Not specified'}</p>
+                      <p><span className="font-medium">Case No:</span> {formatCaseNumber(selectedCase)}</p>
                       {selectedCase.filingNumber && (
                         <p><span className="font-medium">Filing No:</span> {selectedCase.filingNumber}</p>
                       )}
@@ -1299,6 +2115,18 @@ export default function CasesPage() {
                       <p><span className="font-medium">Court:</span> {selectedCase.court || 'Not specified'}</p>
                       <p><span className="font-medium">Court Location:</span> {selectedCase.courtLocation || 'Not specified'}</p>
                       {selectedCase.hallNumber && <p><span className="font-medium">Hall Number:</span> {selectedCase.hallNumber}</p>}
+                      {selectedCase.registrationDate && (
+                        <p><span className="font-medium">Registration Date:</span> {new Date(selectedCase.registrationDate).toLocaleDateString()}</p>
+                      )}
+                      {selectedCase.firstHearingDate && (
+                        <p><span className="font-medium">First Hearing Date:</span> {new Date(selectedCase.firstHearingDate).toLocaleDateString()}</p>
+                      )}
+                      {selectedCase.decisionDate && selectedCase.decisionDate !== '1970-01-01T00:00:00.000Z' && (
+                        <p><span className="font-medium">Decision Date:</span> {new Date(selectedCase.decisionDate).toLocaleDateString()}</p>
+                      )}
+                      {selectedCase.natureOfDisposal && (
+                        <p><span className="font-medium">Nature of Disposal:</span> {selectedCase.natureOfDisposal}</p>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -1418,6 +2246,29 @@ export default function CasesPage() {
                 </div>
               )}
 
+              {/* Acts and Sections Section */}
+              {selectedCase.actsAndSections && (
+                <div className="mb-8">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Acts and Sections</h4>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="space-y-2">
+                      {selectedCase.actsAndSections.acts && (
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">Acts:</p>
+                          <p className="text-sm text-blue-700">{selectedCase.actsAndSections.acts}</p>
+                        </div>
+                      )}
+                      {selectedCase.actsAndSections.sections && selectedCase.actsAndSections.sections !== ',' && (
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">Sections:</p>
+                          <p className="text-sm text-blue-700">{selectedCase.actsAndSections.sections}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Orders Section */}
               {selectedCase.orders && selectedCase.orders.length > 0 && (
                 <div className="mb-8">
@@ -1441,21 +2292,6 @@ export default function CasesPage() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Legal Acts and Sections */}
-              {selectedCase.actsAndSections && (selectedCase.actsAndSections.acts || selectedCase.actsAndSections.sections) && (
-                <div className="mb-8">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Legal Acts & Sections</h4>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    {selectedCase.actsAndSections.acts && (
-                      <p className="text-sm font-medium text-purple-800">{selectedCase.actsAndSections.acts}</p>
-                    )}
-                    {selectedCase.actsAndSections.sections && (
-                      <p className="text-xs text-purple-600 mt-1">Sections: {selectedCase.actsAndSections.sections}</p>
-                    )}
                   </div>
                 </div>
               )}

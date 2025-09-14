@@ -5,67 +5,113 @@ import { useRouter } from 'next/navigation'
 
 interface Case {
   id: string
+  cnrNumber: string
   caseNumber: string
+  filingNumber?: string
+  caseType: string
   title: string
-  clientName: string
+  petitionerName?: string
+  respondentName?: string
   court: string
-  status: string
+  courtLocation?: string
+  hallNumber?: string
+  caseStatus?: string
+  filingDate?: string
+  lastHearingDate?: string
+  nextHearingDate?: string
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  nextHearing?: string
   stage: string
   description?: string
   assignedLawyer?: string
   createdAt?: string
   updatedAt?: string
+  subjectMatter?: string
+  reliefSought?: string
+  caseValue?: string
+  jurisdiction?: string
+  advocates?: Array<{
+    name: string
+    type: string
+    contact?: string
+  }>
+  judges?: Array<{
+    name: string
+    designation: string
+  }>
+  parties?: Array<{
+    name: string
+    type: string
+    contact?: string
+  }>
+  hearingHistory?: Array<{
+    judge: string
+    date: string
+    nextDate: string
+    purpose: string
+    url: string
+  }>
+  orders?: Array<{
+    number: number
+    name: string
+    date: string
+    url: string
+  }>
+  actsAndSections?: {
+    acts?: string
+    sections?: string
+  }
+  registrationNumber?: string
+  registrationDate?: string
+  firstHearingDate?: string
+  decisionDate?: string
+  natureOfDisposal?: string
 }
 
-// Sample case data (in a real app, this would come from an API)
-const sampleCases: Case[] = [
-  {
-    id: '1',
-    caseNumber: 'CASE-2024-001',
-    title: 'Contract Dispute Resolution',
-    clientName: 'ABC Corp',
-    court: 'High Court of Delhi',
-    status: 'ACTIVE',
-    priority: 'HIGH',
-    nextHearing: '4/15/2024',
-    stage: 'Arguments',
-    description: 'Resolution of contract dispute between ABC Corporation and XYZ Ltd regarding payment terms and delivery schedules.',
-    assignedLawyer: 'John Doe',
-    createdAt: '2024-01-15',
-    updatedAt: '2024-04-01'
-  },
-  {
-    id: '2',
-    caseNumber: 'CASE-2024-002',
-    title: 'Property Settlement',
-    clientName: 'XYZ Ltd',
-    court: 'Bombay High Court',
-    status: 'ACTIVE',
-    priority: 'MEDIUM',
-    nextHearing: '4/20/2024',
-    stage: 'Evidence',
-    description: 'Property settlement dispute involving commercial real estate transaction and title issues.',
-    assignedLawyer: 'Jane Smith',
-    createdAt: '2024-02-01',
-    updatedAt: '2024-03-28'
-  },
-  {
-    id: '3',
-    caseNumber: 'CASE-2024-003',
-    title: 'Employment Law Matter',
-    clientName: 'DEF Inc',
-    court: 'Labor Court',
-    status: 'ACTIVE',
-    priority: 'URGENT',
-    stage: 'Preliminary',
-    description: 'Employment termination dispute involving wrongful dismissal and compensation claims.',
-    assignedLawyer: 'Mike Johnson',
-    createdAt: '2024-03-10',
-    updatedAt: '2024-04-05'
+// Helper function to get cases from localStorage
+const getCasesFromStorage = (): Case[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem('legal-cases')
+    return stored ? JSON.parse(stored) : []
+  } catch (error) {
+    console.error('Error loading cases from localStorage:', error)
+    return []
   }
-]
+}
+
+// Helper function to format case number with case type prefix
+const formatCaseNumber = (caseItem: Case): string => {
+  if (!caseItem.caseNumber) return 'Not specified'
+  
+  const caseType = caseItem.caseType || 'CIVIL'
+  const registrationNumber = caseItem.caseNumber
+  
+  // Format: "OS No. 200/2025" or "CIVIL No. 200/2025"
+  return `${caseType} No. ${registrationNumber}`
+}
+
+// Helper function to format dates consistently
+const formatDisplayDate = (dateString: string | undefined): string => {
+  if (!dateString) return 'Not specified'
+  
+  try {
+    const date = new Date(dateString)
+    
+    // Check if it's a null/default date (1970-01-01)
+    if (date.getFullYear() === 1970 && date.getMonth() === 0 && date.getDate() === 1) {
+      return 'Not specified'
+    }
+    
+    // Return formatted date in local timezone
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  } catch {
+    return 'Not specified'
+  }
+}
 
 export default function CaseDetailPage({ params }: { params: { id: string } }) {
   const caseId = params.id
@@ -92,17 +138,21 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
       if (savedCases) {
         const cases = JSON.parse(savedCases)
         const foundCase = cases.find((c: Case) => c.id === caseId)
-        setCaseData(foundCase || null)
+        if (foundCase) {
+          setCaseData(foundCase)
+        } else {
+          // Case not found, redirect back to cases page
+          router.push('/cases')
+        }
       } else {
-        // Fallback to sample cases if localStorage is empty
-        const foundCase = sampleCases.find(c => c.id === caseId)
-        setCaseData(foundCase || null)
+        // No cases in localStorage, redirect back to cases page
+        router.push('/cases')
       }
       setLoading(false)
     }
     
     fetchCase()
-  }, [caseId])
+  }, [caseId, router])
 
   if (loading) {
     return (
@@ -135,7 +185,7 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
     setEditingData({
       caseNumber: caseData.caseNumber,
       title: caseData.title,
-      clientName: caseData.clientName,
+      clientName: caseData.petitionerName || '',
       court: caseData.court || '',
       priority: caseData.priority,
       stage: caseData.stage || '',
@@ -216,7 +266,7 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
                 </svg>
               </button>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">{caseData.caseNumber}</h1>
+                <h1 className="text-3xl font-bold text-gray-900">{formatCaseNumber(caseData)}</h1>
                 <p className="text-gray-600">{caseData.title}</p>
               </div>
             </div>
@@ -253,41 +303,177 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
             </div>
             <div className="border-t border-gray-200">
               <dl>
+                {/* Basic Case Information */}
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Case Number</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {caseData.caseNumber}
+                    {formatCaseNumber(caseData)}
                   </dd>
                 </div>
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">CNR Number</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.cnrNumber || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Filing Number</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.filingNumber || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Case Type</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.caseType || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Title</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     {caseData.title}
                   </dd>
                 </div>
-                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Client</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {caseData.clientName}
-                  </dd>
-                </div>
+
+                {/* Parties Information */}
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Description</dt>
+                  <dt className="text-sm font-medium text-gray-500">Petitioner</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {caseData.description || 'No description available'}
+                    {caseData.petitionerName || 'Not specified'}
                   </dd>
                 </div>
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Respondent</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.respondentName || 'Not specified'}
+                  </dd>
+                </div>
+
+                {/* Court Information */}
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Court</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     {caseData.court || 'Not specified'}
                   </dd>
                 </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Court Location</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.courtLocation || 'Not specified'}
+                  </dd>
+                </div>
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                  <dt className="text-sm font-medium text-gray-500">Hall Number</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.hallNumber || 'Not specified'}
+                  </dd>
+                </div>
+
+                {/* Case Status and Dates */}
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Case Status</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      {caseData.status}
+                      {caseData.caseStatus || caseData.stage || 'Active'}
+                    </span>
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Filing Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.filingDate)}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Registration Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.registrationDate)}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">First Hearing Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.firstHearingDate)}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Last Hearing Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.lastHearingDate)}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Next Hearing Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.nextHearingDate)}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Decision Date</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {formatDisplayDate(caseData.decisionDate)}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Nature of Disposal</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.natureOfDisposal || 'Not specified'}
+                  </dd>
+                </div>
+
+                {/* Case Details */}
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Subject Matter</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.subjectMatter || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Relief Sought</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.reliefSought || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Case Value</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.caseValue || 'Not specified'}
+                  </dd>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Jurisdiction</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    {caseData.jurisdiction || 'Not specified'}
+                  </dd>
+                </div>
+
+                {/* Legal Acts and Sections */}
+                {caseData.actsAndSections && (
+                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Legal Acts and Sections</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      <div className="space-y-2">
+                        {caseData.actsAndSections.acts && (
+                          <div>
+                            <span className="font-medium">Acts:</span> {caseData.actsAndSections.acts}
+                          </div>
+                        )}
+                        {caseData.actsAndSections.sections && (
+                          <div>
+                            <span className="font-medium">Sections:</span> {caseData.actsAndSections.sections}
+                          </div>
+                        )}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+
+                {/* Priority and Stage */}
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">Priority</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(caseData.priority)}`}>
+                      {caseData.priority}
                     </span>
                   </dd>
                 </div>
@@ -297,23 +483,48 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
                     {caseData.stage || 'Not specified'}
                   </dd>
                 </div>
-                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Next Hearing</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {caseData.nextHearing || 'No upcoming hearings'}
-                  </dd>
-                </div>
-                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Assigned Lawyer</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {caseData.assignedLawyer || 'Not assigned'}
-                  </dd>
-                </div>
+
+                {/* Advocates */}
+                {caseData.advocates && caseData.advocates.length > 0 && (
+                  <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Advocates</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      <div className="space-y-1">
+                        {caseData.advocates.map((advocate, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <span className="font-medium">{advocate.name}</span>
+                            <span className="text-gray-500">({advocate.type})</span>
+                            {advocate.contact && <span className="text-gray-400">- {advocate.contact}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+
+                {/* Judges */}
+                {caseData.judges && caseData.judges.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500">Judges</dt>
+                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                      <div className="space-y-1">
+                        {caseData.judges.map((judge, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <span className="font-medium">{judge.name}</span>
+                            <span className="text-gray-500">({judge.designation})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+
+                {/* Created and Updated Dates */}
                 {caseData.createdAt && (
                   <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500">Created</dt>
                     <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {new Date(caseData.createdAt).toLocaleDateString()}
+                      {formatDisplayDate(caseData.createdAt)}
                     </dd>
                   </div>
                 )}
@@ -321,13 +532,123 @@ export default function CaseDetailPage({ params }: { params: { id: string } }) {
                   <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
                     <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                      {new Date(caseData.updatedAt).toLocaleDateString()}
+                      {formatDisplayDate(caseData.updatedAt)}
                     </dd>
                   </div>
                 )}
               </dl>
             </div>
           </div>
+
+          {/* Hearing History Section */}
+          {caseData.hearingHistory && caseData.hearingHistory.length > 0 && (
+            <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Hearing History</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  Complete hearing history for this case
+                </p>
+              </div>
+              <div className="border-t border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judge</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {caseData.hearingHistory.map((hearing, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatDisplayDate(hearing.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {hearing.judge}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {hearing.purpose}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {hearing.nextDate ? formatDisplayDate(hearing.nextDate) : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {hearing.url && (
+                              <a
+                                href={hearing.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                View Details
+                              </a>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Orders Section */}
+          {caseData.orders && caseData.orders.length > 0 && (
+            <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Orders</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  Court orders issued for this case
+                </p>
+              </div>
+              <div className="border-t border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order No.</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {caseData.orders.map((order, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.number}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {order.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatDisplayDate(order.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {order.url && (
+                              <a
+                                href={order.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                View Order
+                              </a>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 

@@ -338,9 +338,10 @@ export class ProjectRepository {
 export class SLARuleRepository {
   
   async create(data: CreateSLARule): Promise<SLARule> {
-    return await db.sLARule.create({
+    const result = await db.sLARule.create({
       data: {
         ...data,
+        description: data.description || undefined,
         conditions: data.conditions || '{}',
         metrics: data.metrics || '{}',
         escalationRules: data.escalationRules || '[]',
@@ -351,16 +352,28 @@ export class SLARuleRepository {
         evaluations: true
       }
     })
+    
+    return {
+      ...result,
+      description: result.description || undefined
+    } as SLARule
   }
   
   async findById(id: string): Promise<SLARule | null> {
-    return await db.sLARule.findUnique({
+    const result = await db.sLARule.findUnique({
       where: { id },
       include: {
         team: true,
         evaluations: true
       }
     })
+    
+    if (!result) return null
+    
+    return {
+      ...result,
+      description: result.description || undefined
+    } as SLARule
   }
   
   async findMany(filters?: {
@@ -388,7 +401,7 @@ export class SLARuleRepository {
       where.isActive = filters.isActive
     }
     
-    return await db.sLARule.findMany({
+    const results = await db.sLARule.findMany({
       where,
       include: {
         team: true,
@@ -398,17 +411,30 @@ export class SLARuleRepository {
         createdAt: 'desc'
       }
     })
+    
+    return results.map(result => ({
+      ...result,
+      description: result.description || undefined
+    })) as SLARule[]
   }
   
   async update(id: string, data: UpdateSLARule): Promise<SLARule> {
-    return await db.sLARule.update({
+    const result = await db.sLARule.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        description: data.description || undefined
+      },
       include: {
         team: true,
         evaluations: true
       }
     })
+    
+    return {
+      ...result,
+      description: result.description || undefined
+    } as SLARule
   }
   
   async delete(id: string): Promise<void> {
@@ -426,21 +452,29 @@ export class SLARuleRepository {
     const where: Prisma.SLARuleWhereInput = {
       isActive: true,
       entityType: context.entityType,
-      OR: [
-        { entitySubType: null },
-        { entitySubType: context.entitySubType }
-      ],
-      OR: [
-        { priority: null },
-        { priority: context.priority }
-      ],
-      OR: [
-        { teamId: null },
-        { teamId: context.teamId }
+      AND: [
+        {
+          OR: [
+            { entitySubType: null },
+            { entitySubType: context.entitySubType }
+          ]
+        },
+        {
+          OR: [
+            { priority: null },
+            { priority: context.priority }
+          ]
+        },
+        {
+          OR: [
+            { teamId: null },
+            { teamId: context.teamId }
+          ]
+        }
       ]
     }
     
-    return await db.sLARule.findMany({
+    const results = await db.sLARule.findMany({
       where,
       include: {
         team: true
@@ -449,10 +483,15 @@ export class SLARuleRepository {
         priority: 'desc'
       }
     })
+    
+    return results.map(result => ({
+      ...result,
+      description: result.description || undefined
+    })) as SLARule[]
   }
   
   async getTeamSLARules(teamId: string): Promise<SLARule[]> {
-    return await db.sLARule.findMany({
+    const results = await db.sLARule.findMany({
       where: {
         teamId,
         isActive: true
@@ -465,6 +504,11 @@ export class SLARuleRepository {
         createdAt: 'desc'
       }
     })
+    
+    return results.map(result => ({
+      ...result,
+      description: result.description || undefined
+    })) as SLARule[]
   }
 }
 

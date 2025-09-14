@@ -132,7 +132,7 @@ export class ECourtsProvider {
   constructor(config?: ECourtsConfig) {
     this.config = {
       provider: config?.provider || (process.env.ECOURTS_PROVIDER as ECourtsProviderType) || 'official',
-      apiKey: config?.apiKey || process.env.ECOURTS_API_KEY,
+      apiKey: config?.apiKey || process.env.ECOURTS_API_KEY || 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104',
       baseUrl: config?.baseUrl,
       timeout: config?.timeout || 30000
     }
@@ -169,12 +169,15 @@ export class ECourtsProvider {
   }
 
   /**
-   * Search for a case by CNR number
+   * Search for a case by CNR number with court type specification
    */
-  async getCaseByCNR(cnr: string): Promise<ECourtsResponse<ECourtsCaseData>> {
+  async getCaseByCNR(cnr: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district'): Promise<ECourtsResponse<ECourtsCaseData>> {
+    const startTime = Date.now()
+    
     try {
       // Validate CNR format (exactly 16 characters, can contain letters and digits)
       if (!/^[A-Za-z0-9\-]{16}$/.test(cnr)) {
+        console.log(`❌ Invalid CNR format: ${cnr}`)
         return {
           success: false,
           error: 'INVALID_CNR',
@@ -182,27 +185,41 @@ export class ECourtsProvider {
         }
       }
 
-      // Determine court type based on CNR pattern
-      const courtType = this.determineCourtType(cnr)
-      console.log(`🔍 Detected court type: ${courtType} for CNR: ${cnr}`)
+      console.log(`🔍 Fetching case data for CNR: ${cnr}, Court Type: ${courtType}`)
 
+      let result: ECourtsResponse<ECourtsCaseData>
+      
       switch (this.config.provider) {
         case 'official':
-          return await this.getCaseFromOfficialAPI(cnr)
+          result = await this.getCaseFromOfficialAPI(cnr)
+          break
         case 'manual':
-          return await this.getCaseFromManualPortal(cnr)
+          result = await this.getCaseFromManualPortal(cnr)
+          break
         case 'third_party':
-          return await this.getCaseFromThirdPartyAPI(cnr, courtType)
+          result = await this.getCaseFromThirdPartyAPI(cnr, courtType)
+          break
         default:
-          return {
+          result = {
             success: false,
             error: 'INVALID_PROVIDER',
             message: 'Invalid provider specified'
           }
       }
       
+      const responseTime = Date.now() - startTime
+      console.log(`⏱️ CNR lookup completed in ${responseTime}ms - ${result.success ? 'SUCCESS' : 'FAILED'}`)
+      
+      if (result.success && result.data) {
+        console.log(`✅ Case found: ${result.data.title}`)
+        console.log(`📊 Parties: ${result.data.parties.length}, Orders: ${result.data.orders.length}`)
+      }
+      
+      return result
+      
     } catch (error) {
-      console.error('Error fetching case by CNR:', error)
+      const responseTime = Date.now() - startTime
+      console.error(`❌ CNR lookup failed after ${responseTime}ms:`, error)
       return {
         success: false,
         error: 'NETWORK_ERROR',
@@ -609,16 +626,62 @@ export class ECourtsProvider {
   }
 
   /**
+   * Format date string to proper format
+   */
+  private formatDate(dateString: string): string {
+    if (!dateString) return ''
+    try {
+      const date = new Date(dateString)
+      
+      // Check if it's a null/default date (1970-01-01)
+      if (date.getFullYear() === 1970 && date.getMonth() === 0 && date.getDate() === 1) {
+        return '' // Return empty string for null dates
+      }
+      
+      // Return YYYY-MM-DD format in local timezone
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      
+      return `${year}-${month}-${day}`
+    } catch {
+      return dateString
+    }
+  }
+
+  /**
+   * Sanitize HTML tags from text
+   */
+  private sanitizeHtml(html: string): string {
+    if (!html) return ''
+    return html
+      .replace(/<br\s*\/?>/gi, ' ')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  /**
    * Map Kleopatra API response to our case data format
    */
   private mapKleopatraResponseToCaseData(apiData: any, cnr: string): ECourtsCaseData {
     const caseData = apiData.data || apiData
     
+    // Extract registration number from multiple possible locations
+    const registrationNumber = apiData.details?.registrationNumber ||
+                              apiData.registrationNumber || 
+                              apiData.regNumber || 
+                              caseData.details?.registrationNumber ||
+                              caseData.registrationNumber || 
+                              caseData.regNumber ||
+                              caseData.caseNumber ||
+                              caseData.case_number
+    
     // Extract parties information from the nested structure
-    const petitioners = caseData.parties?.petitioners || []
-    const respondents = caseData.parties?.respondents || []
-    const petitionerAdvocates = caseData.parties?.petitionerAdvocates || []
-    const respondentAdvocates = caseData.parties?.respondentAdvocates || []
+    const petitioners = apiData.parties?.petitioners || caseData.parties?.petitioners || []
+    const respondents = apiData.parties?.respondents || caseData.parties?.respondents || []
+    const petitionerAdvocates = apiData.parties?.petitionerAdvocates || caseData.parties?.petitionerAdvocates || []
+    const respondentAdvocates = apiData.parties?.respondentAdvocates || caseData.parties?.respondentAdvocates || []
     
     // Format parties array for the expected structure
     const formattedParties = [
@@ -633,16 +696,18 @@ export class ECourtsProvider {
     ]
     
     // Extract hearing history
-    const hearingHistory = caseData.history?.hearings || caseData.hearingHistory || []
+    const hearingHistory = apiData.history || caseData.history?.hearings || caseData.hearingHistory || []
     const formattedHearingHistory = hearingHistory.map((hearing: any) => ({
-      date: hearing.date || hearing.hearingDate || '',
+      date: hearing.businessDate || hearing.date || hearing.hearingDate || '',
       purpose: hearing.purpose || hearing.subject || hearing.description || 'Hearing',
       judge: hearing.judge || hearing.judgeName || 'Unknown Judge',
-      status: hearing.status || hearing.outcome || ''
+      status: hearing.status || hearing.outcome || '',
+      nextDate: hearing.nextDate || '',
+      url: hearing.url || ''
     }))
 
     // Extract orders
-    const orders = caseData.orders || []
+    const orders = apiData.orders || caseData.orders || []
     const formattedOrders = orders.map((order: any, index: number) => ({
       number: order.orderNumber || order.number || index + 1,
       name: order.orderName || order.name || order.description || `Order ${index + 1}`,
@@ -651,7 +716,7 @@ export class ECourtsProvider {
     }))
 
     // Extract acts and sections
-    const actsAndSections = caseData.actsAndSections || {}
+    const actsAndSections = apiData.actsAndSections || caseData.actsAndSections || {}
     const formattedActsAndSections = actsAndSections.acts || actsAndSections.sections ? {
       acts: actsAndSections.acts || actsAndSections.actName || '',
       sections: actsAndSections.sections || actsAndSections.sectionNumbers || ''
@@ -659,24 +724,24 @@ export class ECourtsProvider {
 
     return {
       cnr,
-      caseNumber: caseData.registrationNumber || caseData.regNumber || caseData.caseNumber || caseData.case_number || `REG-${cnr.slice(-6)}`,
-      filingNumber: caseData.filingNumber || caseData.filingNo || caseData.details?.filingNumber || caseData.filing_number || undefined,
+      caseNumber: registrationNumber || `REG-${cnr.slice(-6)}`,
+      filingNumber: apiData.filingNumber || caseData.filingNumber || caseData.filingNo || caseData.details?.filingNumber || caseData.filing_number || undefined,
       title: caseData.title || caseData.case_title || caseData.subject_matter || 'Unknown Case',
       court: caseData.status?.courtNumberAndJudge || caseData.court_name || caseData.court || caseData.jurisdiction || 'Unknown Court',
       courtLocation: caseData.location || caseData.court_location || caseData.district || 'Bengaluru Rural',
       hallNumber: caseData.hall_number || caseData.hall || caseData.court_hall || 'Not specified',
       caseType: caseData.details?.type || caseData.case_type || caseData.type || caseData.category || 'CIVIL',
-      caseStatus: caseData.status?.caseStage || caseData.status || caseData.case_status || caseData.current_status || 'PENDING',
-      filingDate: caseData.details?.filingDate || caseData.details?.registrationDate || caseData.filing_date || caseData.date_of_filing || caseData.registration_date || '',
-      lastHearingDate: caseData.status?.firstHearingDate || caseData.last_hearing_date || caseData.previous_hearing_date,
-      nextHearingDate: caseData.status?.nextHearingDate || caseData.next_hearing_date || caseData.upcoming_hearing_date,
+      caseStatus: this.sanitizeHtml(caseData.status?.caseStage || caseData.status || caseData.case_status || caseData.current_status || 'PENDING'),
+      filingDate: this.formatDate(caseData.details?.filingDate || caseData.details?.registrationDate || caseData.filing_date || caseData.date_of_filing || caseData.registration_date || ''),
+      lastHearingDate: this.formatDate(caseData.status?.firstHearingDate || caseData.last_hearing_date || caseData.previous_hearing_date || ''),
+      nextHearingDate: this.formatDate(caseData.status?.nextHearingDate || caseData.next_hearing_date || caseData.upcoming_hearing_date || ''),
       parties: formattedParties,
       advocates: formattedAdvocates,
       judges: caseData.judges || caseData.bench || caseData.magistrate || [],
       hearingHistory: formattedHearingHistory,
       orders: formattedOrders,
       actsAndSections: formattedActsAndSections,
-      registrationNumber: caseData.registrationNumber || caseData.regNumber || '',
+      registrationNumber: registrationNumber || '',
       registrationDate: caseData.registrationDate || caseData.regDate || '',
       firstHearingDate: caseData.firstHearingDate || caseData.firstHearing?.date || '',
       decisionDate: caseData.decisionDate || caseData.disposalDate || '',
@@ -1348,6 +1413,611 @@ export class ECourtsProvider {
       total: filteredCases.length,
       page: 1,
       limit: filters.limit || 20
+    }
+  }
+
+  // ==================== KLEOPATRA API COMPREHENSIVE SEARCH METHODS ====================
+
+  /**
+   * Search by party name in District Court
+   */
+  async searchByPartyName(partyName: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district', options?: {
+    year?: string
+    stage?: 'BOTH' | 'PENDING' | 'DISPOSED'
+    courtId?: string
+    benchId?: string
+  }): Promise<SearchResult> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for party search'
+        }
+      }
+
+      const endpointMap: Record<string, string> = {
+        'district': '/api/core/live/district-court/search/party',
+        'high': '/api/core/live/high-court/search/party',
+        'supreme': '/api/core/live/supreme-court/search/party',
+        'nclt': '/api/core/live/national-company-law-tribunal/search/party',
+        'cat': '/api/core/live/central-administrative-tribunal/search-party',
+        'consumer': '/api/core/live/consumer-forum/search/party'
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}${endpointMap[courtType]}`
+      
+      const requestBody: any = {
+        name: partyName,
+        year: options?.year || new Date().getFullYear().toString(),
+        stage: options?.stage || 'BOTH'
+      }
+
+      // Add court-specific parameters
+      if (courtType === 'district' && options?.courtId) {
+        requestBody.courtId = options.courtId
+      } else if (courtType === 'high' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      } else if (courtType === 'supreme') {
+        requestBody.type = 'ANY' // PETITIONER, RESPONDENT, ANY
+      } else if (courtType === 'nclt' && options?.benchId) {
+        requestBody.benchId = options.benchId
+        requestBody.partyType = 'PETITIONER' // PETITIONER, RESPONDENT
+      } else if (courtType === 'cat' && options?.benchId) {
+        requestBody.benchId = options.benchId
+        requestBody.type = 'BOTH' // PETITIONER, RESPONDENT, BOTH
+      }
+
+      console.log(`🔍 Party search: ${partyName} in ${courtType} court`)
+      console.log(`📤 Request body:`, requestBody)
+
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      })
+
+      console.log(`✅ Party search success: ${response.status}`)
+      
+      if (response.data && Array.isArray(response.data)) {
+        const mappedCases = response.data.map((caseData: any) => 
+          this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
+        )
+        
+        return {
+          success: true,
+          data: mappedCases,
+          total: mappedCases.length
+        }
+      }
+
+      return {
+        success: false,
+        error: 'NO_RESULTS',
+        message: 'No cases found for the given party name'
+      }
+
+    } catch (error) {
+      console.error('❌ Party search error:', error)
+      return {
+        success: false,
+        error: 'SEARCH_ERROR',
+        message: error instanceof Error ? error.message : 'Party search failed'
+      }
+    }
+  }
+
+  /**
+   * Search by advocate name
+   */
+  async searchByAdvocate(advocateName: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district', options?: {
+    stage?: 'BOTH' | 'PENDING' | 'DISPOSED'
+    courtId?: string
+    benchId?: string
+  }): Promise<SearchResult> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for advocate search'
+        }
+      }
+
+      const endpointMap: Record<string, string> = {
+        'district': '/api/core/live/district-court/search/advocate',
+        'high': '/api/core/live/high-court/search/advocate',
+        'supreme': '/api/core/live/supreme-court/search/aor',
+        'nclt': '/api/core/live/national-company-law-tribunal/search/advocate',
+        'cat': '/api/core/live/central-administrative-tribunal/search-advocate-name',
+        'consumer': '/api/core/live/consumer-forum/search/advocate'
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}${endpointMap[courtType]}`
+      
+      const requestBody: any = {
+        name: advocateName,
+        stage: options?.stage || 'BOTH'
+      }
+
+      // Add court-specific parameters
+      if (courtType === 'district' && options?.courtId) {
+        requestBody.courtId = options.courtId
+      } else if (courtType === 'high' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      } else if (courtType === 'supreme') {
+        requestBody.number = advocateName // For AOR search
+        requestBody.year = new Date().getFullYear().toString()
+      } else if (courtType === 'cat' && options?.benchId) {
+        requestBody.benchId = options.benchId
+        requestBody.type = 'PETITIONER' // PETITIONER, RESPONDENT
+      }
+
+      console.log(`🔍 Advocate search: ${advocateName} in ${courtType} court`)
+
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      })
+
+      console.log(`✅ Advocate search success: ${response.status}`)
+      
+      if (response.data && Array.isArray(response.data)) {
+        const mappedCases = response.data.map((caseData: any) => 
+          this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
+        )
+        
+        return {
+          success: true,
+          data: mappedCases,
+          total: mappedCases.length
+        }
+      }
+
+      return {
+        success: false,
+        error: 'NO_RESULTS',
+        message: 'No cases found for the given advocate name'
+      }
+
+    } catch (error) {
+      console.error('❌ Advocate search error:', error)
+      return {
+        success: false,
+        error: 'SEARCH_ERROR',
+        message: error instanceof Error ? error.message : 'Advocate search failed'
+      }
+    }
+  }
+
+  /**
+   * Search by advocate number (registration number)
+   */
+  async searchByAdvocateNumber(advocateNumber: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district', options?: {
+    stateCode?: string
+    year?: string
+    courtId?: string
+    benchId?: string
+  }): Promise<SearchResult> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for advocate number search'
+        }
+      }
+
+      const endpointMap: Record<string, string> = {
+        'district': '/api/core/live/district-court/search/advocate-number',
+        'high': '/api/core/live/high-court/search/advocate-number',
+        'supreme': '/api/core/live/supreme-court/search/aor-number',
+        'nclt': '/api/core/live/national-company-law-tribunal/search/advocate-number',
+        'cat': '/api/core/live/central-administrative-tribunal/search-advocate-number',
+        'consumer': '/api/core/live/consumer-forum/search/advocate-number'
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}${endpointMap[courtType]}`
+      
+      const requestBody: any = {
+        advocateNumber: advocateNumber,
+        year: options?.year || new Date().getFullYear().toString()
+      }
+
+      // Add court-specific parameters
+      if (courtType === 'district' && options?.stateCode) {
+        requestBody.stateCode = options.stateCode
+      } else if (courtType === 'district' && options?.courtId) {
+        requestBody.courtId = options.courtId
+      } else if (courtType === 'high' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      } else if (courtType === 'supreme') {
+        requestBody.aorNumber = advocateNumber
+        requestBody.year = options?.year || new Date().getFullYear().toString()
+      } else if (courtType === 'nclt' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      } else if (courtType === 'cat' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      }
+
+      console.log(`🔍 Advocate number search: ${advocateNumber} in ${courtType} court`)
+      console.log(`📤 Request body:`, requestBody)
+
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      })
+
+      console.log(`✅ Advocate number search success: ${response.status}`)
+      
+      if (response.data && Array.isArray(response.data)) {
+        const mappedCases = response.data.map((caseData: any) => 
+          this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
+        )
+        
+        return {
+          success: true,
+          data: mappedCases,
+          total: mappedCases.length
+        }
+      }
+
+      return {
+        success: false,
+        error: 'NO_RESULTS',
+        message: 'No cases found for the given advocate number'
+      }
+
+    } catch (error) {
+      console.error('❌ Advocate number search error:', error)
+      return {
+        success: false,
+        error: 'SEARCH_ERROR',
+        message: error instanceof Error ? error.message : 'Advocate number search failed'
+      }
+    }
+  }
+
+  /**
+   * Search by filing number
+   */
+  async searchByFilingNumber(filingNumber: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district', options?: {
+    filingYear?: string
+    courtId?: string
+    benchId?: string
+  }): Promise<SearchResult> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for filing search'
+        }
+      }
+
+      const endpointMap: Record<string, string> = {
+        'district': '/api/core/live/district-court/search/filing',
+        'high': '/api/core/live/high-court/search/filing',
+        'supreme': '/api/core/live/supreme-court/case', // Uses diary number
+        'nclt': '/api/core/live/national-company-law-tribunal/filing-number',
+        'cat': '/api/core/live/central-administrative-tribunal/case-number',
+        'consumer': '/api/core/live/consumer-forum/case'
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}${endpointMap[courtType]}`
+      
+      const requestBody: any = {
+        filingNumber: filingNumber,
+        filingYear: options?.filingYear || new Date().getFullYear().toString()
+      }
+
+      // Add court-specific parameters
+      if (courtType === 'district' && options?.courtId) {
+        requestBody.courtId = options.courtId
+      } else if (courtType === 'high' && options?.benchId) {
+        requestBody.benchId = options.benchId
+      } else if (courtType === 'supreme') {
+        requestBody.diaryNumber = filingNumber
+        requestBody.year = options?.filingYear || new Date().getFullYear().toString()
+      } else if (courtType === 'nclt') {
+        // NCLT filing search doesn't need additional params
+      } else if (courtType === 'cat' && options?.benchId) {
+        requestBody.caseNumber = filingNumber
+        requestBody.caseYear = options?.filingYear || new Date().getFullYear().toString()
+        requestBody.benchId = options.benchId
+        requestBody.typeId = 'default' // This might need to be determined dynamically
+      } else if (courtType === 'consumer') {
+        requestBody.caseNumber = filingNumber
+      }
+
+      console.log(`🔍 Filing search: ${filingNumber} in ${courtType} court`)
+
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      })
+
+      console.log(`✅ Filing search success: ${response.status}`)
+      
+      if (response.data) {
+        const caseData = Array.isArray(response.data) ? response.data[0] : response.data
+        const mappedCase = this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
+        
+        return {
+          success: true,
+          data: [mappedCase],
+          total: 1
+        }
+      }
+
+      return {
+        success: false,
+        error: 'NO_RESULTS',
+        message: 'No cases found for the given filing number'
+      }
+
+    } catch (error) {
+      console.error('❌ Filing search error:', error)
+      return {
+        success: false,
+        error: 'SEARCH_ERROR',
+        message: error instanceof Error ? error.message : 'Filing search failed'
+      }
+    }
+  }
+
+  /**
+   * Search by case number (for courts that use case numbers instead of CNR)
+   */
+  async searchByCaseNumber(caseNumber: string, courtType: 'district' | 'high' | 'supreme' | 'nclt' | 'cat' | 'consumer' = 'district', options?: {
+    caseYear?: string
+    courtId?: string
+    benchId?: string
+    typeId?: string
+  }): Promise<SearchResult> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for case number search'
+        }
+      }
+
+      const endpointMap: Record<string, string> = {
+        'district': '/api/core/live/district-court/case',
+        'high': '/api/core/live/high-court/case',
+        'supreme': '/api/core/live/supreme-court/case',
+        'nclt': '/api/core/live/national-company-law-tribunal/case-number',
+        'cat': '/api/core/live/central-administrative-tribunal/case-number',
+        'consumer': '/api/core/live/consumer-forum/case'
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}${endpointMap[courtType]}`
+      
+      const requestBody: any = {
+        caseNumber: caseNumber,
+        caseYear: options?.caseYear || new Date().getFullYear().toString()
+      }
+
+      // Add court-specific parameters
+      if (courtType === 'nclt' && options?.benchId && options?.typeId) {
+        requestBody.benchId = options.benchId
+        requestBody.typeId = options.typeId
+      } else if (courtType === 'cat' && options?.benchId && options?.typeId) {
+        requestBody.benchId = options.benchId
+        requestBody.typeId = options.typeId
+      } else if (courtType === 'supreme') {
+        requestBody.diaryNumber = caseNumber
+      }
+
+      console.log(`🔍 Case number search: ${caseNumber} in ${courtType} court`)
+
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      })
+
+      console.log(`✅ Case number search success: ${response.status}`)
+      
+      if (response.data) {
+        const caseData = Array.isArray(response.data) ? response.data[0] : response.data
+        const mappedCase = this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || caseNumber)
+        
+        return {
+          success: true,
+          data: [mappedCase],
+          total: 1
+        }
+      }
+
+      return {
+        success: false,
+        error: 'NO_RESULTS',
+        message: 'No cases found for the given case number'
+      }
+
+    } catch (error) {
+      console.error('❌ Case number search error:', error)
+      return {
+        success: false,
+        error: 'SEARCH_ERROR',
+        message: error instanceof Error ? error.message : 'Case number search failed'
+      }
+    }
+  }
+
+  // ==================== STATIC DATA METHODS ====================
+
+  /**
+   * Get all states for District Court
+   */
+  async getDistrictCourtStates(): Promise<{ success: boolean; data?: Array<{ id: string; name: string }>; error?: string }> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for static data'
+        }
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}/api/core/static/district-court/states`
+      
+      const response = await axios.get(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      })
+
+      return {
+        success: true,
+        data: response.data
+      }
+
+    } catch (error) {
+      console.error('❌ Get states error:', error)
+      return {
+        success: false,
+        error: 'STATIC_DATA_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch states'
+      }
+    }
+  }
+
+  /**
+   * Get districts for specified states
+   */
+  async getDistricts(stateIds?: string[]): Promise<{ success: boolean; data?: Array<{ id: string; name: string }>; error?: string }> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for static data'
+        }
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}/api/core/static/district-court/districts`
+      
+      const requestBody = stateIds ? { stateIds } : { all: true }
+      
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      })
+
+      return {
+        success: true,
+        data: response.data.districts
+      }
+
+    } catch (error) {
+      console.error('❌ Get districts error:', error)
+      return {
+        success: false,
+        error: 'STATIC_DATA_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch districts'
+      }
+    }
+  }
+
+  /**
+   * Get complexes for specified districts
+   */
+  async getComplexes(districtIds?: string[]): Promise<{ success: boolean; data?: Array<{ id: string; name: string }>; error?: string }> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for static data'
+        }
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}/api/core/static/district-court/complexes`
+      
+      const requestBody = districtIds ? { districtIds } : { all: true }
+      
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      })
+
+      return {
+        success: true,
+        data: response.data.complexes
+      }
+
+    } catch (error) {
+      console.error('❌ Get complexes error:', error)
+      return {
+        success: false,
+        error: 'STATIC_DATA_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch complexes'
+      }
+    }
+  }
+
+  /**
+   * Get courts for specified complexes
+   */
+  async getCourts(complexIds?: string[]): Promise<{ success: boolean; data?: Array<{ id: string; name: string }>; error?: string }> {
+    try {
+      if (!this.config.apiKey) {
+        return {
+          success: false,
+          error: 'API_KEY_REQUIRED',
+          message: 'Kleopatra API key is required for static data'
+        }
+      }
+
+      const endpoint = `${this.THIRD_PARTY_ENDPOINTS.KLEOPATRA}/api/core/static/district-court/courts`
+      
+      const requestBody = complexIds ? { complexIds } : { all: true }
+      
+      const response = await axios.post(endpoint, requestBody, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      })
+
+      return {
+        success: true,
+        data: response.data.courts
+      }
+
+    } catch (error) {
+      console.error('❌ Get courts error:', error)
+      return {
+        success: false,
+        error: 'STATIC_DATA_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch courts'
+      }
     }
   }
 }
