@@ -6,7 +6,7 @@
   "framework": "nextjs",
   "functions": {
     "apps/web/app/api/**/*.ts": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   },
   "env": {
