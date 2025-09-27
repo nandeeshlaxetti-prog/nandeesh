@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm --filter web build",
+  "buildCommand": "pnpm build",
   "outputDirectory": ".next",
   "installCommand": "pnpm install --no-frozen-lockfile --ignore-scripts",
   "framework": "nextjs",
