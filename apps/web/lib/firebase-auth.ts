@@ -20,6 +20,10 @@ export interface UserProfile {
 export class FirebaseAuthService {
   // Sign in with email and password
   static async signIn(email: string, password: string): Promise<UserProfile> {
+    if (!auth) {
+      throw new Error('Firebase not initialized')
+    }
+    
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
@@ -37,6 +41,10 @@ export class FirebaseAuthService {
 
   // Sign up with email and password
   static async signUp(email: string, password: string, name?: string): Promise<UserProfile> {
+    if (!auth || !db) {
+      throw new Error('Firebase not initialized')
+    }
+    
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
@@ -65,6 +73,10 @@ export class FirebaseAuthService {
 
   // Sign out
   static async signOut(): Promise<void> {
+    if (!auth) {
+      return // No-op if Firebase not initialized
+    }
+    
     try {
       await signOut(auth)
     } catch (error: any) {
@@ -74,11 +86,18 @@ export class FirebaseAuthService {
 
   // Get current user
   static getCurrentUser(): User | null {
+    if (!auth) {
+      return null
+    }
     return auth.currentUser
   }
 
   // Listen to auth state changes
   static onAuthStateChanged(callback: (user: User | null) => void) {
+    if (!auth) {
+      // Return a no-op unsubscribe function
+      return () => {}
+    }
     return onAuthStateChanged(auth, callback)
   }
 

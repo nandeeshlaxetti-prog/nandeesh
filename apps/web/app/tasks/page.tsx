@@ -6,8 +6,11 @@ import { useTaskManagement } from '../hooks/useTaskManagement';
 import { AddTaskModal } from './_components/AddTaskModal';
 import { KanbanBoard } from './_components/KanbanBoard';
 import { TaskFilters } from './_components/TaskFilters';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { useToast } from '@/components/ui/toast';
 
 export default function TasksPage() {
+  const { toast } = useToast();
   const { tasks, isLoaded, addTask, updateTask, deleteTask, getAvailableAssignees, getAssigneeById } = useTaskManagement();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -52,6 +55,8 @@ export default function TasksPage() {
       ...taskData,
       status: 'todo', // New tasks start as 'todo'
     });
+    setIsModalOpen(false);
+    toast.success('Task added successfully!');
   };
 
   const handleUpdateTask = (taskId: string, updates: Partial<any>) => {
@@ -101,14 +106,14 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tasks</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
                 Manage your tasks and deadlines efficiently
               </p>
             </div>
@@ -137,16 +142,16 @@ export default function TasksPage() {
                 </button>
               </div>
               
-              <button
+              <AnimatedButton
                 onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 aria-label="Add new task"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 Add Task
-              </button>
+              </AnimatedButton>
             </div>
           </div>
         </div>

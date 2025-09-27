@@ -448,7 +448,7 @@ export class NotificationService {
     }
 
     // Check if category is enabled
-    if (notification.entityType && !categories[notification.entityType.toLowerCase()]) {
+    if (notification.entityType && !categories[notification.entityType.toLowerCase() as keyof typeof categories]) {
       console.log(`🔇 Skipping notification due to disabled category: ${notification.entityType}`)
       return
     }

@@ -5,8 +5,13 @@ import { Client, ClientType, seedClients } from './_types';
 import { NewClientModal } from './_components/NewClientModal';
 import { ClientTable } from './_components/ClientTable';
 import { ClientDrawer } from './_components/ClientDrawer';
+import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { StaggeredCards } from '@/components/anim/StaggeredList';
+import { useToast } from '@/components/ui/toast';
 
 export default function ContactsPage() {
+  const { toast } = useToast();
   const [clients, setClients] = useState<Client[]>(seedClients);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -48,29 +53,17 @@ export default function ContactsPage() {
     city?: string;
     state?: string;
     pincode?: string;
-    pan?: string;
-    gstin?: string;
+    website?: string;
     notes?: string;
   }) => {
-    if (editingClient) {
-      // Update existing client
-      setClients(prev =>
-        prev.map(client =>
-          client.id === editingClient.id
-            ? { ...client, ...clientData }
-            : client
-        )
-      );
-    } else {
-      // Add new client
-      const newClient: Client = {
-        ...clientData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-      };
-      setClients(prev => [...prev, newClient]);
-    }
-    setEditingClient(null);
+    const newClient: Client = {
+      id: Date.now().toString(),
+      ...clientData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setClients(prev => [...prev, newClient]);
+    toast.success('Client added successfully!');
   };
 
   const handleEditClient = (client: Client) => {
@@ -103,88 +96,84 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Clients</h1>
-          <p className="text-gray-600 mt-2">
-            Manage your clients and their information
-          </p>
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Clients</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Manage your clients and their information
+              </p>
+            </div>
+            <AnimatedButton
+              onClick={handleNewClient}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Add new client"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              New Client
+            </AnimatedButton>
+          </div>
         </div>
-        <button
-          onClick={handleNewClient}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          aria-label="Add new client"
-        >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Client
-        </button>
-      </div>
+      </header>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <label htmlFor="search" className="sr-only">
-              Search clients
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+      {/* Main Content */}
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label htmlFor="search" className="sr-only">
+                Search clients
+              </label>
               <input
                 id="search"
                 type="text"
+                placeholder="Search clients..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Search by name, email, or phone..."
+                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
-          </div>
-          <div className="sm:w-48">
-            <label htmlFor="type-filter" className="sr-only">
-              Filter by client type
-            </label>
-            <select
-              id="type-filter"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as ClientType | 'All')}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="All">All Types</option>
-              <option value="Individual">Individual</option>
-              <option value="Company">Company</option>
-            </select>
+            <div className="sm:w-48">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as ClientType | 'All')}
+                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="All">All Types</option>
+                <option value="Individual">Individual</option>
+                <option value="Company">Company</option>
+                <option value="Government">Government</option>
+                <option value="NGO">NGO</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Clients Table */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-medium text-gray-900">
-            Clients ({filteredClients.length})
-          </h2>
-          {filteredClients.length !== clients.length && (
-            <p className="text-sm text-gray-500">
-              Showing {filteredClients.length} of {clients.length} clients
+        {/* Results count */}
+        <div className="mb-4">
+          {filteredClients.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400">
+              No clients found.
+            </p>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">
+              Showing {filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}
             </p>
           )}
         </div>
-      </div>
 
-      <ClientTable
-        clients={filteredClients}
-        onEditClient={handleEditClient}
-        onDeleteClient={handleDeleteClient}
-        onViewClient={handleViewClient}
-      />
+        {/* Client Table */}
+        <ClientTable
+          clients={filteredClients}
+          onEditClient={handleEditClient}
+          onDeleteClient={handleDeleteClient}
+          onViewClient={handleViewClient}
+        />
+      </main>
 
       {/* Modal */}
       <NewClientModal

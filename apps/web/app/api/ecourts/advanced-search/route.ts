@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const searchType = searchParams.get('searchType') || 'cnr'
     
     // New Court Type driven parameters
-    const cnrNumber = searchParams.get('cnrNumber')
+    const cnrNumber = searchParams.get('cnrNumber') || searchParams.get('cnr')
     const partyName = searchParams.get('partyName')
     const state = searchParams.get('state')
     const district = searchParams.get('district')
@@ -24,13 +24,18 @@ export async function GET(request: NextRequest) {
     const filingNumber = searchParams.get('filingNumber')
     
     // Legacy parameters for backward compatibility
-    const searchQuery = searchParams.get('searchQuery') || searchParams.get('cnr') || ''
+    const searchQuery = searchParams.get('searchQuery') || cnrNumber || ''
 
     console.log(`🔍 Advanced search: ${searchType} in ${courtType} court`)
     console.log(`📋 Parameters:`, { cnrNumber, partyName, advocateName, advocateNumber, filingNumber })
 
-    // Initialize ECourts provider
-    const ecourtsProvider = new ECourtsProvider()
+    // Initialize ECourts provider with multi-provider support
+    const config = {
+      provider: 'third_party' as const,
+      apiKey: process.env.ECOURTS_API_KEY || process.env.NEXT_PUBLIC_ECOURTS_API_KEY || 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104', // Supports Official E-Courts v17.0, Kleopatra, Phoenix, and Surepass
+      timeout: 30000
+    }
+    const ecourtsProvider = new ECourtsProvider(config)
 
     let result: ECourtsCaseData | null = null
 
@@ -82,15 +87,22 @@ export async function GET(request: NextRequest) {
           console.log(`🔍 Advocate search for: ${advocateName}`)
           const advocateResult = await ecourtsProvider.searchByAdvocate(advocateName, courtType as any, {
             stage: 'BOTH',
-            courtId: complex // Use complex as courtId for district court
+            courtId: complex, // Use complex as courtId for district court
+            stateCode: 'KAR', // Karnataka state code
+            year: '2021' // Test year
           })
+          
+          console.log(`📊 Advocate search result:`, advocateResult)
+          
           if (advocateResult.success && advocateResult.data && advocateResult.data.length > 0) {
             result = advocateResult.data[0] as any
+            console.log(`✅ Advocate search found ${advocateResult.data.length} cases`)
           } else {
+            console.log(`❌ Advocate search failed:`, advocateResult.error, advocateResult.message)
             return NextResponse.json({
               success: false,
-              error: advocateResult.error || 'No cases found for the given advocate name',
-              message: advocateResult.message || 'Advocate search failed'
+              error: advocateResult.error || 'NO_CASES_FOUND',
+              message: advocateResult.message || 'No cases found for the given advocate name. Try searching by party name instead.'
             }, { status: 404 })
           }
           break
@@ -104,8 +116,8 @@ export async function GET(request: NextRequest) {
           }
           console.log(`🔍 Advocate number search for: ${advocateNumber}`)
           const advocateNumberResult = await ecourtsProvider.searchByAdvocateNumber(advocateNumber, courtType as any, {
-            stateCode: state, // Use state as stateCode for district court
-            year: year,
+            stateCode: state || 'KAR', // Default to Karnataka if not provided
+            year: year || '2021', // Default to 2021 if not provided
             courtId: complex // Use complex as courtId for district court
           })
           if (advocateNumberResult.success && advocateNumberResult.data && advocateNumberResult.data.length > 0) {

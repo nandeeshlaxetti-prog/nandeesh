@@ -4,7 +4,6 @@
     "module": "commonjs",
     "lib": ["es2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -20,6 +19,6 @@
       "jobs/*": ["../../packages/jobs/src/*"]
     }
   },
-  "include": ["src/main.ts", "src/preload.ts"],
+  "include": ["src/main.ts", "src/preload.ts", "../../packages/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -13,10 +13,20 @@ const firebaseConfig = {
   measurementId: "G-JX55MML2VZ"
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const auth = getAuth(app)
-const db = getFirestore(app)
+// Initialize Firebase only on client side
+let app: any = null
+let auth: any = null
+let db: any = null
+
+if (typeof window !== 'undefined') {
+  try {
+    app = initializeApp(firebaseConfig)
+    auth = getAuth(app)
+    db = getFirestore(app)
+  } catch (error) {
+    console.error('Firebase initialization error:', error)
+  }
+}
 
 export { auth, db }
 export default app

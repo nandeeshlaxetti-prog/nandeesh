@@ -22,6 +22,7 @@ export interface FileRecord {
 export interface FileUploadInput {
   originalName: string
   mimeType: string
+  size: number
   fileBuffer: Buffer
   uploadedBy: string
   caseId?: string

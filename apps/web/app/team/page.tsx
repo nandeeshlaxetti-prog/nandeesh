@@ -17,109 +17,109 @@ export default function TeamPage() {
 
   if (!isLoaded) {
     return (
-      <div className="max-w-screen-2xl mx-auto px-4 py-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="flex gap-2 mb-8">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-8 bg-gray-200 rounded w-20"></div>
-            ))}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="h-6 bg-gray-200 rounded mb-3"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
+        </header>
+        <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="animate-pulse">
+            <div className="flex gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-3"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Team</h1>
-          <p className="text-gray-600 mt-2">
-            View team members and their roles. To add or remove team members, go to Settings.
-          </p>
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                View team members and their roles. To add or remove team members, go to Settings.
+              </p>
+            </div>
+            <a
+              href="/settings"
+              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              aria-label="Manage team members in Settings"
+            >
+              Manage Team
+            </a>
+          </div>
         </div>
-        <a
-          href="/settings"
-          className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          aria-label="Manage team members in Settings"
-        >
-          Manage Team
-        </a>
-      </div>
+      </header>
 
-      {/* Filter Chips */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {filters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-              activeFilter === filter
-                ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-            }`}
-            aria-label={`Filter by ${filter}`}
-            aria-pressed={activeFilter === filter}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
+      {/* Main Content */}
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Filter Chips */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                activeFilter === filter
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
 
-      {/* Employee Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredEmployees.map((employee) => (
-          <div
-            key={employee.id}
-            className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="space-y-3">
-              {/* Name */}
-              <h3 className="text-lg font-semibold text-gray-900">
-                {employee.name}
-              </h3>
-
-              {/* Role Badge */}
-              <RoleBadge 
-                role={employee.role} 
-                showPrimary={employee.role === 'Partner'} 
-              />
-
-              {/* Email */}
-              {employee.email && (
-                <p className="text-sm text-gray-600">
-                  {employee.email}
-                </p>
-              )}
-
-              {/* Role Display (Read-only) */}
-              <div className="text-sm text-gray-500">
-                Role: <span className="font-medium">{employee.role}</span>
+        {/* Team Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredEmployees.map((employee) => (
+            <div key={employee.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-shadow">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="h-12 w-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                  {employee.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{employee.name}</h3>
+                  <RoleBadge role={employee.role as Role} />
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                <p>{employee.email}</p>
+                <p>{employee.phone}</p>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {filteredEmployees.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">
-            No team members found for the selected filter.
-          </p>
+          ))}
         </div>
-      )}
+
+        {/* Empty State */}
+        {filteredEmployees.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
+              No team members found for the selected filter.
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

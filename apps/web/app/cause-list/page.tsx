@@ -3,35 +3,41 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { DayTabs } from './_components/DayTabs'
-import { CauseListTable } from './_components/CauseListTable'
+import { CauseListDataGrid } from './_components/CauseListDataGrid'
 import { mockCauseListData } from './_data/mockCauseList'
-import { getISTDate, getDateRange, formatDateForDisplay } from './_utils/date'
+import { getCauseListDateLabels, getISTDateForOffset } from '@/lib/date-ist'
 import type { CauseListEntry } from './_data/mockCauseList'
 
 export default function CauseListPage() {
-  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [selectedOffset, setSelectedOffset] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
 
   // Initialize with today's date
   useEffect(() => {
-    const today = getISTDate()
-    setSelectedDate(today)
     setIsLoading(false)
   }, [])
 
-  // Get the 5-day date range
-  const dateRange = useMemo(() => getDateRange(), [])
+  // Get the 5-day date range using IST helpers
+  const dateLabels = useMemo(() => getCauseListDateLabels(), [])
 
   // Get entries for the selected date
   const selectedDateEntries = useMemo(() => {
+    const selectedDate = getISTDateForOffset(selectedOffset).toISOString().split('T')[0]
     return mockCauseListData.filter(entry => entry.dateISO === selectedDate)
-  }, [selectedDate])
+  }, [selectedOffset])
 
-  // Filter entries
+  // Filter entries by search query
   const filteredEntries = useMemo(() => {
-    return selectedDateEntries
-  }, [selectedDateEntries])
+    if (!searchQuery.trim()) return selectedDateEntries
+    
+    const query = searchQuery.toLowerCase()
+    return selectedDateEntries.filter(entry =>
+      entry.caseNumber.toLowerCase().includes(query) ||
+      entry.parties?.toLowerCase().includes(query) ||
+      entry.advocate?.toLowerCase().includes(query)
+    )
+  }, [selectedDateEntries, searchQuery])
 
   // Handle refresh
   const handleRefresh = () => {
@@ -42,20 +48,21 @@ export default function CauseListPage() {
     }, 1000)
   }
 
-  // Get count for each date
-  const getDateCount = (date: string) => {
+  // Get count for each date offset
+  const getDateCount = (offset: number) => {
+    const date = getISTDateForOffset(offset).toISOString().split('T')[0]
     return mockCauseListData.filter(entry => entry.dateISO === date).length
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Cause List</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cause List</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 View daily cause lists for the next 5 days
               </p>
             </div>
@@ -75,9 +82,9 @@ export default function CauseListPage() {
         {/* Date Tabs */}
         <div className="mb-6">
           <DayTabs
-            dateRange={dateRange}
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
+            dateLabels={dateLabels}
+            selectedOffset={selectedOffset}
+            onOffsetSelect={setSelectedOffset}
             getDateCount={getDateCount}
           />
         </div>
@@ -93,7 +100,7 @@ export default function CauseListPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by Case No., Parties, or Advocate..."
+                  placeholder="Search by Case No. or Case Title..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -102,12 +109,11 @@ export default function CauseListPage() {
             </div>
           </div>
 
-          {/* Table */}
+          {/* DataGrid */}
           <div className="px-6 py-4">
-            <CauseListTable
+            <CauseListDataGrid
               entries={filteredEntries}
               isLoading={isLoading}
-              searchQuery={searchQuery}
             />
           </div>
         </div>

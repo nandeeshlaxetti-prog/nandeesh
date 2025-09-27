@@ -5,8 +5,11 @@ import { Project, ProjectType, ProjectStatus, ProjectPriority, projectTypeColors
 import { useProjectManagement } from '../hooks/useProjectManagement';
 import { NewProjectModal } from './_components/NewProjectModal';
 import { ProjectTable } from './_components/ProjectTable';
+import { AnimatedButton } from '@/components/ui/animated-button';
+import { useToast } from '@/components/ui/toast';
 
 export default function ProjectsPage() {
+  const { toast } = useToast();
   const { 
     projects, 
     isLoaded, 
@@ -75,6 +78,7 @@ export default function ProjectsPage() {
     } else {
       // Add new project
       addProject(projectData);
+      toast.success('Project added successfully!');
     }
     setEditingProject(null);
   };
@@ -143,14 +147,14 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Projects</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
                 Manage your projects and track progress across different types of work
               </p>
             </div>
@@ -179,16 +183,16 @@ export default function ProjectsPage() {
                 </button>
               </div>
               
-              <button
+              <AnimatedButton
                 onClick={handleNewProject}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 aria-label="Add new project"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 New Project
-              </button>
+              </AnimatedButton>
             </div>
           </div>
         </div>

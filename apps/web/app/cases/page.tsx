@@ -3,7 +3,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ECourtsProvider, ECourtsCaseData, ECourtsConfig } from '@/lib/ecourts-provider'
-import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, DocumentTextIcon, UserIcon, BuildingOfficeIcon, ScaleIcon, AcademicCapIcon, BanknotesIcon, BriefcaseIcon, ClipboardDocumentListIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { backgroundSyncService, SyncStatus } from '@/lib/background-sync'
+import { cloudStorageService, CloudCase, CloudSyncStatus, UserActivity } from '@/lib/cloud-storage-service'
+import { unifiedDataService } from '@/lib/unified-data-service'
+import EntityNavigation from '@/app/components/EntityNavigation'
+import { migrationService, MigrationStatus } from '@/lib/migration-service'
+import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, DocumentTextIcon, UserIcon, BuildingOfficeIcon, ScaleIcon, AcademicCapIcon, BanknotesIcon, BriefcaseIcon, ClipboardDocumentListIcon, ArrowPathIcon, XMarkIcon, CloudIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { AnimatedButton, SuccessButton } from '@/components/ui/animated-button'
+import { StaggeredCards } from '@/components/anim/StaggeredList'
+import { useToast } from '@/components/ui/toast'
 // import { SyncStatusComponent } from './_components/SyncStatusComponent'
 
 // Advanced search types
@@ -13,6 +21,11 @@ type DistrictCourtFunction = 'cnr' | 'party' | 'advocate' | 'advocateNumber' | '
 interface AdvancedSearchForm {
   courtType: CourtType
   districtCourtFunction?: DistrictCourtFunction
+  highCourtFunction?: 'cnr' | 'party' | 'advocate' | 'filing'
+  supremeCourtFunction?: 'diary' | 'party' | 'orders' | 'aor'
+  ncltFunction?: 'caseNumber' | 'filingNumber' | 'party'
+  catFunction?: 'caseNumber' | 'diaryNumber' | 'party' | 'advocate'
+  consumerFunction?: 'caseDetails'
   
   // CNR Lookup
   cnrNumber?: string
@@ -33,6 +46,22 @@ interface AdvancedSearchForm {
   
   // Filing Search
   filingNumber?: string
+  
+  // Supreme Court specific
+  diaryNumber?: string
+  aorNumber?: string
+  orderDate?: string
+  
+  // NCLT specific
+  caseNumber?: string
+  benchId?: string
+  typeId?: string
+  
+  // CAT specific
+  caseYear?: string
+  
+  // Consumer Forum specific
+  consumerCaseNumber?: string
 }
 
 const courtTypeOptions = [
@@ -52,13 +81,57 @@ const districtCourtFunctions = [
   { value: 'filing', label: 'Filing Search', icon: ClipboardDocumentListIcon, description: 'Search by filing numbers' }
 ]
 
-// Sample data for dropdowns
-const states = [
+const highCourtFunctions = [
+  { value: 'cnr', label: 'CNR Lookup', icon: DocumentTextIcon, description: 'Search by Case Number Reference' },
+  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names' },
+  { value: 'advocate', label: 'Advocate Search', icon: ScaleIcon, description: 'Search by advocate names' },
+  { value: 'filing', label: 'Filing Search', icon: ClipboardDocumentListIcon, description: 'Search by filing numbers' }
+]
+
+const supremeCourtFunctions = [
+  { value: 'diary', label: 'Diary Number', icon: DocumentTextIcon, description: 'Search by diary number' },
+  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names' },
+  { value: 'orders', label: 'Orders on Date', icon: ClipboardDocumentListIcon, description: 'Get orders for specific date' },
+  { value: 'aor', label: 'AOR Search', icon: AcademicCapIcon, description: 'Search by Advocate on Record' }
+]
+
+const ncltFunctions = [
+  { value: 'caseNumber', label: 'Case Number', icon: DocumentTextIcon, description: 'Search by case number' },
+  { value: 'filingNumber', label: 'Filing Number', icon: ClipboardDocumentListIcon, description: 'Search by filing number' },
+  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names' }
+]
+
+const catFunctions = [
+  { value: 'caseNumber', label: 'Case Number', icon: DocumentTextIcon, description: 'Search by case number' },
+  { value: 'diaryNumber', label: 'Diary Number', icon: ClipboardDocumentListIcon, description: 'Search by diary number' },
+  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names' },
+  { value: 'advocate', label: 'Advocate Search', icon: ScaleIcon, description: 'Search by advocate names' }
+]
+
+const consumerFunctions = [
+  { value: 'caseDetails', label: 'Case Details', icon: DocumentTextIcon, description: 'Get case details by case number' }
+]
+
+// Dynamic data for dropdowns - will be loaded from API
+interface CourtData {
+  id: string
+  name: string
+}
+
+interface StaticCourtData {
+  states: CourtData[]
+  districts: CourtData[]
+  complexes: CourtData[]
+  courts: CourtData[]
+}
+
+// Fallback sample data for dropdowns
+const fallbackStates = [
   'Karnataka', 'Maharashtra', 'Tamil Nadu', 'Kerala', 'Andhra Pradesh', 
   'Telangana', 'Gujarat', 'Rajasthan', 'Uttar Pradesh', 'Delhi'
 ]
 
-const districts = {
+const fallbackDistricts = {
   'Karnataka': ['Bangalore Urban', 'Bangalore Rural', 'Mysore', 'Mangalore', 'Hubli'],
   'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Aurangabad'],
   'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Salem', 'Tiruchirapalli'],
@@ -66,7 +139,7 @@ const districts = {
   'Andhra Pradesh': ['Hyderabad', 'Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore']
 }
 
-const complexes = {
+const fallbackComplexes = {
   'Bangalore Urban': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal'],
   'Mumbai': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal'],
   'Chennai': ['City Civil Court', 'Family Court', 'Commercial Court', 'Motor Accident Claims Tribunal']
@@ -123,26 +196,48 @@ interface Case {
     date: string
     url?: string
   }>
-  actsAndSections?: {
-    acts: string
-    sections: string
-  }
   registrationNumber?: string
   registrationDate?: string
   firstHearingDate?: string
   decisionDate?: string
   natureOfDisposal?: string
   lastRefreshed?: string
+  // Additional properties for cloud storage compatibility
+  assignedTo?: string
+  notes?: string
+  documents?: string[]
+  // Additional eCourts data fields
+  status?: any
+  acts?: any[]
+  subMatters?: any[]
+  iaDetails?: any[]
+  categoryDetails?: any
+  documentDetails?: any[]
+  objections?: any[]
+  history?: any[]
+  firstInformationReport?: any
+  transfer?: any[]
+  // Additional fields
+  actsAndSections?: {
+    acts?: string
+    sections?: string
+  }
 }
 
 export default function CasesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   
         // Advanced search state
         const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false)
         const [advancedSearchForm, setAdvancedSearchForm] = useState<AdvancedSearchForm>({
           courtType: 'district',
           districtCourtFunction: 'cnr',
+          highCourtFunction: 'cnr',
+          supremeCourtFunction: 'diary',
+          ncltFunction: 'caseNumber',
+          catFunction: 'caseNumber',
+          consumerFunction: 'caseDetails',
           cnrNumber: '',
           state: '',
           district: '',
@@ -152,8 +247,26 @@ export default function CasesPage() {
           year: '',
           advocateName: '',
           advocateNumber: '',
-          filingNumber: ''
+          filingNumber: '',
+          diaryNumber: '',
+          aorNumber: '',
+          orderDate: '',
+          caseNumber: '',
+          benchId: '',
+          typeId: '',
+          caseYear: '',
+          consumerCaseNumber: ''
         })
+        
+        // Dynamic court data states
+        const [staticCourtData, setStaticCourtData] = useState<StaticCourtData>({
+          states: [],
+          districts: [],
+          complexes: [],
+          courts: []
+        })
+        const [isLoadingCourtData, setIsLoadingCourtData] = useState(false)
+        const [courtDataError, setCourtDataError] = useState<string | null>(null)
   
   // Default cases
   const defaultCases: Case[] = [
@@ -257,25 +370,157 @@ export default function CasesPage() {
     }
   ]
 
-  // Load cases from localStorage on component mount
-  const [cases, setCases] = useState<Case[]>([])
-  
+  // Load cases from cloud storage
   useEffect(() => {
-    const savedCases = localStorage.getItem('legal-cases')
-    if (savedCases) {
-      setCases(JSON.parse(savedCases))
-    } else {
-      setCases(defaultCases)
-      localStorage.setItem('legal-cases', JSON.stringify(defaultCases))
+    const loadCases = async () => {
+      try {
+        // Check if migration is needed
+        if (migrationService.needsMigration()) {
+          setShowMigrationModal(true)
+          return
+        }
+
+        // Load cases from cloud storage
+        const cloudCases = await cloudStorageService.getAllCases()
+        
+        // Convert CloudCase to Case format for compatibility
+        const convertedCases: Case[] = cloudCases.map(cloudCase => ({
+          id: cloudCase.id || '',
+          title: cloudCase.title,
+          caseNumber: cloudCase.caseNumber || '',
+          cnrNumber: cloudCase.cnrNumber || '',
+          petitionerName: cloudCase.petitionerName || '',
+          respondentName: cloudCase.respondentName || '',
+          court: cloudCase.court || '',
+          courtLocation: cloudCase.courtLocation || '',
+          caseType: 'CIVIL', // Default value
+          caseStatus: cloudCase.caseStatus || 'PENDING',
+          filingDate: cloudCase.filingDate || new Date().toISOString(),
+          priority: cloudCase.priority || 'MEDIUM',
+          stage: cloudCase.stage || '',
+          subjectMatter: cloudCase.subjectMatter || '',
+          reliefSought: cloudCase.reliefSought || '',
+          jurisdiction: 'District Court', // Default value
+          advocates: [], // Default empty array
+          judges: [], // Default empty array
+          hearingHistory: [], // Default empty array
+          severity: 'MEDIUM', // Default value
+          // Optional fields
+          filingNumber: cloudCase.filingNumber,
+          nextHearingDate: cloudCase.nextHearingDate,
+          lastHearingDate: cloudCase.lastHearingDate,
+          caseValue: cloudCase.caseValue,
+          assignedTo: cloudCase.assignedTo,
+          notes: cloudCase.notes,
+          documents: cloudCase.documents,
+          // Additional eCourts data
+          registrationNumber: cloudCase.registrationNumber,
+          status: cloudCase.status,
+          parties: cloudCase.parties || [],
+          acts: cloudCase.acts,
+          subMatters: cloudCase.subMatters,
+          iaDetails: cloudCase.iaDetails,
+          categoryDetails: cloudCase.categoryDetails,
+          documentDetails: cloudCase.documentDetails,
+          objections: cloudCase.objections,
+          history: cloudCase.history,
+          orders: cloudCase.orders || [],
+          firstInformationReport: cloudCase.firstInformationReport,
+          transfer: cloudCase.transfer
+        }))
+
+        setCases(convertedCases)
+        setCloudSyncStatus(cloudStorageService.getSyncStatus())
+      } catch (error) {
+        console.error('Failed to load cases from cloud:', error)
+        // Fallback to localStorage
+        const storedCases = localStorage.getItem('legal-cases')
+        if (storedCases) {
+          setCases(JSON.parse(storedCases))
+        }
+      }
+    }
+
+    loadCases()
+  }, [])
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const unsubscribe = cloudStorageService.subscribeToCases((cloudCases) => {
+      const convertedCases: Case[] = cloudCases.map(cloudCase => ({
+        id: cloudCase.id || '',
+        title: cloudCase.title,
+        caseNumber: cloudCase.caseNumber || '',
+        cnrNumber: cloudCase.cnrNumber || '',
+        petitionerName: cloudCase.petitionerName || '',
+        respondentName: cloudCase.respondentName || '',
+        court: cloudCase.court || '',
+        courtLocation: cloudCase.courtLocation || '',
+        caseType: 'CIVIL', // Default value
+        caseStatus: cloudCase.caseStatus || 'PENDING',
+        filingDate: cloudCase.filingDate || new Date().toISOString(),
+        priority: cloudCase.priority || 'MEDIUM',
+        stage: cloudCase.stage || '',
+        subjectMatter: cloudCase.subjectMatter || '',
+        reliefSought: cloudCase.reliefSought || '',
+        jurisdiction: 'District Court', // Default value
+        advocates: [], // Default empty array
+        judges: [], // Default empty array
+        hearingHistory: [], // Default empty array
+        severity: 'MEDIUM', // Default value
+        // Optional fields
+        filingNumber: cloudCase.filingNumber,
+        nextHearingDate: cloudCase.nextHearingDate,
+        lastHearingDate: cloudCase.lastHearingDate,
+        caseValue: cloudCase.caseValue,
+        assignedTo: cloudCase.assignedTo,
+        notes: cloudCase.notes,
+        documents: cloudCase.documents,
+        // Additional eCourts data
+        registrationNumber: cloudCase.registrationNumber,
+        status: cloudCase.status,
+        parties: cloudCase.parties || [],
+        acts: cloudCase.acts,
+        subMatters: cloudCase.subMatters,
+        iaDetails: cloudCase.iaDetails,
+        categoryDetails: cloudCase.categoryDetails,
+        documentDetails: cloudCase.documentDetails,
+        objections: cloudCase.objections,
+        history: cloudCase.history,
+        orders: cloudCase.orders || [],
+        firstInformationReport: cloudCase.firstInformationReport,
+        transfer: cloudCase.transfer
+      }))
+      
+      setCases(convertedCases)
+      setCloudSyncStatus(cloudStorageService.getSyncStatus())
+    })
+
+    return unsubscribe
+  }, [])
+
+  // Real-time collaboration listeners
+  useEffect(() => {
+    // Subscribe to user activities
+    const unsubscribeActivities = cloudStorageService.onActivity((activity) => {
+      setRecentActivities(prev => [activity, ...prev.slice(0, 9)]) // Keep last 10 activities
+    })
+
+    // Subscribe to user presence changes
+    const unsubscribePresence = cloudStorageService.onPresenceChange((userCount) => {
+      setActiveUsers(userCount)
+    })
+
+    return () => {
+      unsubscribeActivities()
+      unsubscribePresence()
     }
   }, [])
 
-  // Save cases to localStorage whenever cases change
-  useEffect(() => {
-    if (cases.length > 0) {
-      localStorage.setItem('legal-cases', JSON.stringify(cases))
-    }
-  }, [cases])
+  // Load cases from cloud storage
+
+  // Cases state
+  const [cases, setCases] = useState<Case[]>([])
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -285,6 +530,196 @@ export default function CasesPage() {
   const [isLoadingCNR, setIsLoadingCNR] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [searchSuccess, setSearchSuccess] = useState<string | null>(null)
+  
+  // Basic search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filteredCases, setFilteredCases] = useState<Case[]>([])
+  
+  // Cloud storage state
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>(cloudStorageService.getSyncStatus())
+  const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>(migrationService.getMigrationStatus())
+  const [showMigrationModal, setShowMigrationModal] = useState(false)
+  const [isMigrating, setIsMigrating] = useState(false)
+  
+  // Real-time collaboration state
+  const [recentActivities, setRecentActivities] = useState<UserActivity[]>([])
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [currentUser, setCurrentUser] = useState(cloudStorageService.getCurrentUser())
+  
+  // Background sync state
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(backgroundSyncService.getStatus())
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false)
+  const [refreshInterval, setRefreshInterval] = useState(30) // minutes
+  
+  // Filter cases based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredCases(cases)
+    } else {
+      const query = searchQuery.toLowerCase()
+      const filtered = cases.filter(caseItem => 
+        caseItem.title?.toLowerCase().includes(query) ||
+        caseItem.caseNumber?.toLowerCase().includes(query) ||
+        caseItem.cnrNumber?.toLowerCase().includes(query) ||
+        caseItem.petitionerName?.toLowerCase().includes(query) ||
+        caseItem.respondentName?.toLowerCase().includes(query) ||
+        caseItem.court?.toLowerCase().includes(query) ||
+        caseItem.courtLocation?.toLowerCase().includes(query) ||
+        caseItem.subjectMatter?.toLowerCase().includes(query) ||
+        caseItem.reliefSought?.toLowerCase().includes(query) ||
+        caseItem.stage?.toLowerCase().includes(query) ||
+        caseItem.caseStatus?.toLowerCase().includes(query)
+      )
+      setFilteredCases(filtered)
+    }
+  }, [cases, searchQuery])
+
+  // Background sync management
+  useEffect(() => {
+    // Subscribe to sync status changes
+    const unsubscribe = backgroundSyncService.onStatusChange((status) => {
+      setSyncStatus(status)
+    })
+
+    // Load saved settings
+    const savedSettings = localStorage.getItem('legal-desktop-auto-refresh')
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings)
+        setAutoRefreshEnabled(settings.enabled || false)
+        setRefreshInterval(settings.interval || 30)
+        
+        if (settings.enabled) {
+          backgroundSyncService.start(settings.interval)
+        }
+      } catch (error) {
+        console.error('Failed to load auto-refresh settings:', error)
+      }
+    }
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  // Handle auto-refresh toggle
+  const handleAutoRefreshToggle = (enabled: boolean) => {
+    setAutoRefreshEnabled(enabled)
+    
+    if (enabled) {
+      backgroundSyncService.start(refreshInterval)
+    } else {
+      backgroundSyncService.stop()
+    }
+    
+    // Save settings
+    localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
+      enabled,
+      interval: refreshInterval
+    }))
+  }
+
+  // Handle refresh interval change
+  const handleRefreshIntervalChange = (interval: number) => {
+    setRefreshInterval(interval)
+    
+    if (autoRefreshEnabled) {
+      backgroundSyncService.setInterval(interval)
+    }
+    
+    // Save settings
+    localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
+      enabled: autoRefreshEnabled,
+      interval
+    }))
+  }
+
+  // Manual sync trigger
+  const handleManualSync = async () => {
+    try {
+      const status = await backgroundSyncService.performSync()
+      setSyncStatus(status)
+      
+      if (status.updatedCases > 0) {
+        setSearchSuccess(`Background sync completed: ${status.updatedCases} cases updated`)
+        setTimeout(() => setSearchSuccess(null), 5000)
+      }
+    } catch (error) {
+      console.error('Manual sync failed:', error)
+      setSearchError('Manual sync failed. Please try again.')
+      setTimeout(() => setSearchError(null), 5000)
+    }
+  }
+  
+  // Migration functions
+  const handleStartMigration = async () => {
+    setIsMigrating(true)
+    try {
+      const status = await migrationService.startMigration()
+      setMigrationStatus(status)
+      
+      if (status.isComplete) {
+        setShowMigrationModal(false)
+        // Reload cases from cloud storage
+        const cloudCases = await cloudStorageService.getAllCases()
+        const convertedCases: Case[] = cloudCases.map(cloudCase => ({
+          id: cloudCase.id || '',
+          title: cloudCase.title,
+          caseNumber: cloudCase.caseNumber || '',
+          cnrNumber: cloudCase.cnrNumber || '',
+          petitionerName: cloudCase.petitionerName || '',
+          respondentName: cloudCase.respondentName || '',
+          court: cloudCase.court || '',
+          courtLocation: cloudCase.courtLocation || '',
+          caseType: 'CIVIL', // Default value
+          caseStatus: cloudCase.caseStatus || 'PENDING',
+          filingDate: cloudCase.filingDate || new Date().toISOString(),
+          priority: cloudCase.priority || 'MEDIUM',
+          stage: cloudCase.stage || '',
+          subjectMatter: cloudCase.subjectMatter || '',
+          reliefSought: cloudCase.reliefSought || '',
+          jurisdiction: 'District Court', // Default value
+          advocates: [], // Default empty array
+          judges: [], // Default empty array
+          hearingHistory: [], // Default empty array
+          severity: 'MEDIUM', // Default value
+          // Optional fields
+          filingNumber: cloudCase.filingNumber,
+          nextHearingDate: cloudCase.nextHearingDate,
+          lastHearingDate: cloudCase.lastHearingDate,
+          caseValue: cloudCase.caseValue,
+          assignedTo: cloudCase.assignedTo,
+          notes: cloudCase.notes,
+          documents: cloudCase.documents,
+          // Additional eCourts data
+          registrationNumber: cloudCase.registrationNumber,
+          status: cloudCase.status,
+          parties: cloudCase.parties || [],
+          acts: cloudCase.acts,
+          subMatters: cloudCase.subMatters,
+          iaDetails: cloudCase.iaDetails,
+          categoryDetails: cloudCase.categoryDetails,
+          documentDetails: cloudCase.documentDetails,
+          objections: cloudCase.objections,
+          history: cloudCase.history,
+          orders: cloudCase.orders || [],
+          firstInformationReport: cloudCase.firstInformationReport,
+          transfer: cloudCase.transfer
+        }))
+        setCases(convertedCases)
+      }
+    } catch (error) {
+      console.error('Migration failed:', error)
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
+  const handleSkipMigration = () => {
+    setShowMigrationModal(false)
+    // Use default cases if no migration
+    setCases(defaultCases)
+  }
   
   // Advanced search modal state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
@@ -306,15 +741,13 @@ export default function CasesPage() {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Helper function to format case number with case type prefix
+  // Helper function to format case number
   const formatCaseNumber = (caseItem: Case): string => {
     if (!caseItem.caseNumber) return 'Not specified'
     
-    const caseType = caseItem.caseType || 'CIVIL'
-    const registrationNumber = caseItem.caseNumber
-    
     // Format: "OS No. 200/2025" or "CIVIL No. 200/2025"
-    return `${caseType} No. ${registrationNumber}`
+    const caseType = caseItem.caseType || 'CIVIL'
+    return `${caseType} No. ${caseItem.caseNumber}`
   }
   const [newCase, setNewCase] = useState({
     caseNumber: '',
@@ -460,7 +893,7 @@ export default function CasesPage() {
       
       // Use server-side API route to avoid CORS issues
       console.log('📞 Calling server-side CNR API...')
-      const response = await fetch('/api/ecourts/cnr', {
+      const response = await fetch('/api/ecourts/cnr/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -546,6 +979,66 @@ export default function CasesPage() {
     }
   }
 
+        // Load court data from Kleopatra API
+        const loadCourtData = async (type: 'states' | 'districts' | 'complexes' | 'courts', params?: any) => {
+          setIsLoadingCourtData(true)
+          setCourtDataError(null)
+          
+          try {
+            const config = {
+              provider: 'third_party' as const,
+              apiKey: 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104',
+              timeout: 30000
+            }
+            
+            const ecourtsProvider = new ECourtsProvider(config)
+            let result: any
+            
+            switch (type) {
+              case 'states':
+                result = await ecourtsProvider.getDistrictCourtStates()
+                if (result.success) {
+                  setStaticCourtData(prev => ({ ...prev, states: result.data || [] }))
+                }
+                break
+              case 'districts':
+                result = await ecourtsProvider.getDistricts(params?.stateIds)
+                if (result.success) {
+                  setStaticCourtData(prev => ({ ...prev, districts: result.data || [] }))
+                }
+                break
+              case 'complexes':
+                result = await ecourtsProvider.getComplexes(params?.districtIds)
+                if (result.success) {
+                  setStaticCourtData(prev => ({ ...prev, complexes: result.data || [] }))
+                }
+                break
+              case 'courts':
+                result = await ecourtsProvider.getCourts(params?.complexIds)
+                if (result.success) {
+                  setStaticCourtData(prev => ({ ...prev, courts: result.data || [] }))
+                }
+                break
+            }
+            
+            if (!result.success) {
+              setCourtDataError(result.error || 'Failed to load court data')
+            }
+          } catch (error) {
+            console.error('Error loading court data:', error)
+            setCourtDataError('Failed to load court data from API')
+          } finally {
+            setIsLoadingCourtData(false)
+          }
+        }
+        
+        // Load states on component mount
+        useEffect(() => {
+          if (isAdvancedSearchOpen && staticCourtData.states.length === 0) {
+            loadCourtData('states')
+          }
+        }, [isAdvancedSearchOpen])
+
         // Handle advanced search form changes
         const handleAdvancedSearchChange = (field: keyof AdvancedSearchForm, value: string) => {
           setAdvancedSearchForm(prev => {
@@ -553,7 +1046,27 @@ export default function CasesPage() {
             
             // Reset dependent fields when court type changes
             if (field === 'courtType') {
+              // Set default function based on court type
+              switch (value) {
+                case 'district':
               newForm.districtCourtFunction = 'cnr'
+                  break
+                case 'high':
+                  newForm.highCourtFunction = 'cnr'
+                  break
+                case 'supreme':
+                  newForm.supremeCourtFunction = 'diary'
+                  break
+                case 'nclt':
+                  newForm.ncltFunction = 'caseNumber'
+                  break
+                case 'cat':
+                  newForm.catFunction = 'caseNumber'
+                  break
+                case 'consumer':
+                  newForm.consumerFunction = 'caseDetails'
+                  break
+              }
               newForm.state = ''
               newForm.district = ''
               newForm.complex = ''
@@ -563,11 +1076,33 @@ export default function CasesPage() {
             if (field === 'state') {
               newForm.district = ''
               newForm.complex = ''
+              // Load districts for selected state
+              if (value) {
+                const selectedState = staticCourtData.states.find(s => s.name === value)
+                if (selectedState) {
+                  loadCourtData('districts', { stateIds: [selectedState.id] })
+                }
+              }
             }
             
             // Reset dependent fields when district changes
             if (field === 'district') {
               newForm.complex = ''
+              // Load complexes for selected district
+              if (value) {
+                const selectedDistrict = staticCourtData.districts.find(d => d.name === value)
+                if (selectedDistrict) {
+                  loadCourtData('complexes', { districtIds: [selectedDistrict.id] })
+                }
+              }
+            }
+            
+            // Load courts when complex changes
+            if (field === 'complex' && value) {
+              const selectedComplex = staticCourtData.complexes.find(c => c.name === value)
+              if (selectedComplex) {
+                loadCourtData('courts', { complexIds: [selectedComplex.id] })
+              }
             }
             
             return newForm
@@ -576,7 +1111,8 @@ export default function CasesPage() {
 
         // Validate form based on selected function
         const isFormValid = () => {
-          if (advancedSearchForm.courtType === 'district') {
+          switch (advancedSearchForm.courtType) {
+            case 'district':
             switch (advancedSearchForm.districtCourtFunction) {
               case 'cnr':
                 return !!advancedSearchForm.cnrNumber?.trim()
@@ -591,8 +1127,66 @@ export default function CasesPage() {
               default:
                 return false
             }
-          }
+            case 'high':
+              switch (advancedSearchForm.highCourtFunction) {
+                case 'cnr':
+                  return !!advancedSearchForm.cnrNumber?.trim()
+                case 'party':
+                  return !!advancedSearchForm.partyName?.trim()
+                case 'advocate':
+                  return !!advancedSearchForm.advocateName?.trim()
+                case 'filing':
+                  return !!advancedSearchForm.filingNumber?.trim()
+                default:
+                  return false
+              }
+            case 'supreme':
+              switch (advancedSearchForm.supremeCourtFunction) {
+                case 'diary':
+                  return !!advancedSearchForm.diaryNumber?.trim()
+                case 'party':
+                  return !!advancedSearchForm.partyName?.trim()
+                case 'orders':
+                  return !!advancedSearchForm.orderDate?.trim()
+                case 'aor':
+                  return !!advancedSearchForm.aorNumber?.trim()
+                default:
           return false
+              }
+            case 'nclt':
+              switch (advancedSearchForm.ncltFunction) {
+                case 'caseNumber':
+                  return !!advancedSearchForm.caseNumber?.trim()
+                case 'filingNumber':
+                  return !!advancedSearchForm.filingNumber?.trim()
+                case 'party':
+                  return !!advancedSearchForm.partyName?.trim()
+                default:
+                  return false
+              }
+            case 'cat':
+              switch (advancedSearchForm.catFunction) {
+                case 'caseNumber':
+                  return !!advancedSearchForm.caseNumber?.trim()
+                case 'diaryNumber':
+                  return !!advancedSearchForm.diaryNumber?.trim()
+                case 'party':
+                  return !!advancedSearchForm.partyName?.trim()
+                case 'advocate':
+                  return !!advancedSearchForm.advocateName?.trim()
+                default:
+                  return false
+              }
+            case 'consumer':
+              switch (advancedSearchForm.consumerFunction) {
+                case 'caseDetails':
+                  return !!advancedSearchForm.consumerCaseNumber?.trim()
+                default:
+                  return false
+              }
+            default:
+              return false
+          }
         }
 
   // Handle advanced search submission
@@ -609,15 +1203,38 @@ export default function CasesPage() {
       searchParams.append('courtType', advancedSearchForm.courtType)
       
       // Handle different court types and their functions
-      if (advancedSearchForm.courtType === 'district') {
-        searchParams.append('searchType', advancedSearchForm.districtCourtFunction || 'cnr')
-        
+      let searchType = ''
+      switch (advancedSearchForm.courtType) {
+        case 'district':
+          searchType = advancedSearchForm.districtCourtFunction || 'cnr'
+          break
+        case 'high':
+          searchType = advancedSearchForm.highCourtFunction || 'cnr'
+          break
+        case 'supreme':
+          searchType = advancedSearchForm.supremeCourtFunction || 'diary'
+          break
+        case 'nclt':
+          searchType = advancedSearchForm.ncltFunction || 'caseNumber'
+          break
+        case 'cat':
+          searchType = advancedSearchForm.catFunction || 'caseNumber'
+          break
+        case 'consumer':
+          searchType = advancedSearchForm.consumerFunction || 'caseDetails'
+          break
+      }
+      searchParams.append('searchType', searchType)
+      
+      // Add parameters based on court type and search function
+      switch (advancedSearchForm.courtType) {
+        case 'district':
         switch (advancedSearchForm.districtCourtFunction) {
           case 'cnr':
             if (!advancedSearchForm.cnrNumber?.trim()) {
               throw new Error('CNR Number is required')
             }
-            searchParams.append('cnr', advancedSearchForm.cnrNumber)
+            searchParams.append('cnrNumber', advancedSearchForm.cnrNumber)
             break
             
           case 'party':
@@ -653,6 +1270,128 @@ export default function CasesPage() {
             searchParams.append('filingNumber', advancedSearchForm.filingNumber)
             break
         }
+          break
+          
+        case 'high':
+          switch (advancedSearchForm.highCourtFunction) {
+            case 'cnr':
+              if (!advancedSearchForm.cnrNumber?.trim()) {
+                throw new Error('CNR Number is required')
+              }
+              searchParams.append('cnrNumber', advancedSearchForm.cnrNumber)
+              break
+            case 'party':
+              if (!advancedSearchForm.partyName?.trim()) {
+                throw new Error('Party Name is required')
+              }
+              searchParams.append('partyName', advancedSearchForm.partyName)
+              break
+            case 'advocate':
+              if (!advancedSearchForm.advocateName?.trim()) {
+                throw new Error('Advocate Name is required')
+              }
+              searchParams.append('advocateName', advancedSearchForm.advocateName)
+              break
+            case 'filing':
+              if (!advancedSearchForm.filingNumber?.trim()) {
+                throw new Error('Filing Number is required')
+              }
+              searchParams.append('filingNumber', advancedSearchForm.filingNumber)
+              break
+          }
+          break
+          
+        case 'supreme':
+          switch (advancedSearchForm.supremeCourtFunction) {
+            case 'diary':
+              if (!advancedSearchForm.diaryNumber?.trim()) {
+                throw new Error('Diary Number is required')
+              }
+              searchParams.append('diaryNumber', advancedSearchForm.diaryNumber)
+              break
+            case 'party':
+              if (!advancedSearchForm.partyName?.trim()) {
+                throw new Error('Party Name is required')
+              }
+              searchParams.append('partyName', advancedSearchForm.partyName)
+              break
+            case 'orders':
+              if (!advancedSearchForm.orderDate?.trim()) {
+                throw new Error('Order Date is required')
+              }
+              searchParams.append('orderDate', advancedSearchForm.orderDate)
+              break
+            case 'aor':
+              if (!advancedSearchForm.aorNumber?.trim()) {
+                throw new Error('AOR Number is required')
+              }
+              searchParams.append('aorNumber', advancedSearchForm.aorNumber)
+              break
+          }
+          break
+          
+        case 'nclt':
+          switch (advancedSearchForm.ncltFunction) {
+            case 'caseNumber':
+              if (!advancedSearchForm.caseNumber?.trim()) {
+                throw new Error('Case Number is required')
+              }
+              searchParams.append('caseNumber', advancedSearchForm.caseNumber)
+              break
+            case 'filingNumber':
+              if (!advancedSearchForm.filingNumber?.trim()) {
+                throw new Error('Filing Number is required')
+              }
+              searchParams.append('filingNumber', advancedSearchForm.filingNumber)
+              break
+            case 'party':
+              if (!advancedSearchForm.partyName?.trim()) {
+                throw new Error('Party Name is required')
+              }
+              searchParams.append('partyName', advancedSearchForm.partyName)
+              break
+          }
+          break
+          
+        case 'cat':
+          switch (advancedSearchForm.catFunction) {
+            case 'caseNumber':
+              if (!advancedSearchForm.caseNumber?.trim()) {
+                throw new Error('Case Number is required')
+              }
+              searchParams.append('caseNumber', advancedSearchForm.caseNumber)
+              break
+            case 'diaryNumber':
+              if (!advancedSearchForm.diaryNumber?.trim()) {
+                throw new Error('Diary Number is required')
+              }
+              searchParams.append('diaryNumber', advancedSearchForm.diaryNumber)
+              break
+            case 'party':
+              if (!advancedSearchForm.partyName?.trim()) {
+                throw new Error('Party Name is required')
+              }
+              searchParams.append('partyName', advancedSearchForm.partyName)
+              break
+            case 'advocate':
+              if (!advancedSearchForm.advocateName?.trim()) {
+                throw new Error('Advocate Name is required')
+              }
+              searchParams.append('advocateName', advancedSearchForm.advocateName)
+              break
+          }
+          break
+          
+        case 'consumer':
+          switch (advancedSearchForm.consumerFunction) {
+            case 'caseDetails':
+              if (!advancedSearchForm.consumerCaseNumber?.trim()) {
+                throw new Error('Case Number is required')
+              }
+              searchParams.append('consumerCaseNumber', advancedSearchForm.consumerCaseNumber)
+              break
+          }
+          break
       }
 
       const response = await fetch(`/api/ecourts/advanced-search?${searchParams.toString()}`, {
@@ -670,14 +1409,30 @@ export default function CasesPage() {
       
       if (result.success && result.data) {
         // Add the found case to the list
-        setCases([...cases, result.data])
-        setSearchSuccess(`Case found and added successfully!`)
-        setIsAdvancedSearchOpen(false)
+        const newCase = result.data
+        setCases(prevCases => [...prevCases, newCase])
+        
+        // Show success message with case details
+        setSearchSuccess(`✅ Case found and added successfully! 
+        Case: ${newCase.title}
+        CNR: ${newCase.cnrNumber}
+        Court: ${newCase.court}`)
+        
+        // Close modal after a short delay
+        setTimeout(() => {
+          setIsAdvancedSearchOpen(false)
+          setSearchSuccess(null)
+        }, 3000)
         
         // Reset form
         setAdvancedSearchForm({
           courtType: 'district',
           districtCourtFunction: 'cnr',
+          highCourtFunction: 'cnr',
+          supremeCourtFunction: 'diary',
+          ncltFunction: 'caseNumber',
+          catFunction: 'caseNumber',
+          consumerFunction: 'caseDetails',
           cnrNumber: '',
           state: '',
           district: '',
@@ -687,14 +1442,34 @@ export default function CasesPage() {
           year: '',
           advocateName: '',
           advocateNumber: '',
-          filingNumber: ''
+          filingNumber: '',
+          diaryNumber: '',
+          aorNumber: '',
+          orderDate: '',
+          caseNumber: '',
+          benchId: '',
+          typeId: '',
+          caseYear: '',
+          consumerCaseNumber: ''
         })
       } else {
         throw new Error(result.error || 'No case found')
       }
     } catch (error) {
       console.error('Advanced search error:', error)
-      setSearchError(error instanceof Error ? error.message : 'Search failed')
+      const errorMessage = error instanceof Error ? error.message : 'Search failed'
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('advocate') || errorMessage.includes('Advocate')) {
+        setSearchError(`Advocate search failed: ${errorMessage}. 
+        
+💡 Try these alternatives:
+• Search by Party Name instead
+• Use CNR Lookup if you have the case number
+• Check if the advocate name is spelled correctly`)
+      } else {
+        setSearchError(errorMessage)
+      }
     } finally {
       setIsLoadingCNR(false)
     }
@@ -707,7 +1482,7 @@ export default function CasesPage() {
       console.log('🔄 Starting refresh of cases with real API data...')
       
       // Get current cases from localStorage
-      const storedCases = localStorage.getItem('legal-desktop-cases')
+      const storedCases = localStorage.getItem('legal-cases')
       if (!storedCases) {
         console.log('No cases found to refresh')
         return
@@ -727,7 +1502,7 @@ export default function CasesPage() {
             console.log(`🔄 Refreshing case: ${caseItem.cnrNumber}`)
             
             // Fetch fresh data from API
-            const response = await fetch('/api/ecourts/cnr', {
+            const response = await fetch('/api/ecourts/cnr/', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -774,7 +1549,7 @@ export default function CasesPage() {
       
       // Update cases state and localStorage
       setCases(refreshedCases)
-      localStorage.setItem('legal-desktop-cases', JSON.stringify(refreshedCases))
+      localStorage.setItem('legal-cases', JSON.stringify(refreshedCases))
       
       console.log(`🎉 Refresh completed: ${successCount} successful, ${errorCount} failed`)
       
@@ -813,7 +1588,7 @@ export default function CasesPage() {
     setShowCaseDetails(true)
   }
 
-  const handleUpdateCase = () => {
+  const handleUpdateCase = async () => {
     if (!editingCase || !newCase.caseNumber || !newCase.title || !newCase.petitionerName) {
       alert('Please fill in all required fields')
       return
@@ -831,6 +1606,64 @@ export default function CasesPage() {
       stage: newCase.stage
     }
 
+    try {
+      // Convert Case to CloudCase format for update
+      const cloudUpdates: Partial<CloudCase> = {
+        title: updatedCase.title,
+        caseNumber: updatedCase.caseNumber,
+        cnrNumber: updatedCase.cnrNumber,
+        petitionerName: updatedCase.petitionerName,
+        respondentName: updatedCase.respondentName,
+        court: updatedCase.court,
+        courtLocation: updatedCase.courtLocation,
+        subjectMatter: updatedCase.subjectMatter,
+        reliefSought: updatedCase.reliefSought,
+        stage: updatedCase.stage,
+        caseStatus: updatedCase.caseStatus,
+        priority: updatedCase.priority,
+        filingDate: updatedCase.filingDate,
+        nextHearingDate: updatedCase.nextHearingDate,
+        lastHearingDate: updatedCase.lastHearingDate,
+        caseValue: updatedCase.caseValue,
+        assignedTo: updatedCase.assignedTo,
+        notes: updatedCase.notes,
+        documents: updatedCase.documents,
+        // Additional eCourts data
+        registrationNumber: updatedCase.registrationNumber,
+        filingNumber: updatedCase.filingNumber,
+        status: updatedCase.status,
+        parties: updatedCase.parties,
+        acts: updatedCase.acts,
+        subMatters: updatedCase.subMatters,
+        iaDetails: updatedCase.iaDetails,
+        categoryDetails: updatedCase.categoryDetails,
+        documentDetails: updatedCase.documentDetails,
+        objections: updatedCase.objections,
+        history: updatedCase.history,
+        orders: updatedCase.orders,
+        firstInformationReport: updatedCase.firstInformationReport,
+        transfer: updatedCase.transfer
+      }
+
+      await cloudStorageService.updateCase(updatedCase.id, cloudUpdates)
+      
+      // Update local state
+      setCases(cases.map(c => c.id === editingCase.id ? updatedCase : c))
+      setShowEditModal(false)
+      setEditingCase(null)
+      setNewCase({
+        caseNumber: '',
+        filingNumber: '',
+        title: '',
+        petitionerName: '',
+        respondentName: '',
+        court: '',
+        priority: 'MEDIUM',
+        stage: ''
+      })
+    } catch (error) {
+      console.error('Failed to update case in cloud storage:', error)
+      // Fallback to local state
     setCases(cases.map(c => c.id === editingCase.id ? updatedCase : c))
     setShowEditModal(false)
     setEditingCase(null)
@@ -844,11 +1677,19 @@ export default function CasesPage() {
       priority: 'MEDIUM',
       stage: ''
     })
+    }
   }
 
-  const handleDeleteCase = (caseId: string) => {
+  const handleDeleteCase = async (caseId: string) => {
     if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
+      try {
+        await cloudStorageService.deleteCase(caseId)
+        setCases(cases.filter(c => c.id !== caseId))
+      } catch (error) {
+        console.error('Failed to delete case from cloud storage:', error)
+        // Fallback to local state
       setCases(cases.filter(c => c.id !== caseId))
+      }
     }
   }
 
@@ -862,14 +1703,47 @@ export default function CasesPage() {
     }
   }
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Cases</h1>
-              <p className="text-gray-600">Manage your legal cases</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Cases</h1>
+              <p className="text-gray-600 dark:text-gray-400">Manage your legal cases</p>
+              
+              {/* Cloud Sync Status */}
+              <div className="mt-2 flex items-center space-x-2">
+                <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded-full ${
+                  cloudSyncStatus.isOnline 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-orange-100 text-orange-800'
+                }`}>
+                  <CloudIcon className="h-3 w-3" />
+                  <span>{cloudSyncStatus.isOnline ? 'Cloud Connected' : 'Offline Mode'}</span>
+                </div>
+                
+                {activeUsers > 0 && (
+                  <div className="flex items-center space-x-1 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                    <UserIcon className="h-3 w-3" />
+                    <span>{activeUsers} user{activeUsers !== 1 ? 's' : ''} online</span>
+                  </div>
+                )}
+                
+                {cloudSyncStatus.pendingChanges > 0 && (
+                  <div className="flex items-center space-x-1 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                    <ExclamationTriangleIcon className="h-3 w-3" />
+                    <span>{cloudSyncStatus.pendingChanges} pending</span>
+                  </div>
+                )}
+                
+                {cloudSyncStatus.syncErrors.length > 0 && (
+                  <div className="flex items-center space-x-1 text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                    <ExclamationTriangleIcon className="h-3 w-3" />
+                    <span>{cloudSyncStatus.syncErrors.length} errors</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex space-x-3">
               <button
@@ -880,34 +1754,172 @@ export default function CasesPage() {
                 <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
-              <button
+              <AnimatedButton
                 onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
                 Add Case
-              </button>
-              <button
+              </AnimatedButton>
+              <AnimatedButton
                 onClick={() => setShowCNRModal(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
               >
                 Import by CNR
-              </button>
-              <button
+              </AnimatedButton>
+              <AnimatedButton
                 onClick={() => setIsAdvancedSearchOpen(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
               >
                 <FunnelIcon className="h-5 w-5 mr-2" />
                 Advanced Search
+              </AnimatedButton>
+              
+              {/* Auto-Refresh Controls */}
+              <div className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg">
+                <label className="flex items-center space-x-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={(e) => handleAutoRefreshToggle(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">Auto-refresh</span>
+                </label>
+                
+                {autoRefreshEnabled && (
+                  <select
+                    value={refreshInterval}
+                    onChange={(e) => handleRefreshIntervalChange(Number(e.target.value))}
+                    className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                  >
+                    <option value={15}>Every 15 min</option>
+                    <option value={30}>Every 30 min</option>
+                    <option value={60}>Every 1 hour</option>
+                    <option value={120}>Every 2 hours</option>
+                    <option value={240}>Every 4 hours</option>
+                  </select>
+                )}
+                
+                <button
+                  onClick={handleManualSync}
+                  disabled={syncStatus.isRunning}
+                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {syncStatus.isRunning ? 'Syncing...' : 'Sync Now'}
               </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Background Sync Status */}
+      {/* Search Bar */}
+      <div className="bg-white border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        {/* Background Sync Status - Temporarily disabled */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search cases by title, case number, CNR, parties, court, or any other field..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            {searchQuery && (
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+          </div>
+          {searchQuery && (
+            <div className="mt-2 text-sm text-gray-600">
+              Showing {filteredCases.length} of {cases.length} cases
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Real-time Activity Feed */}
+      {recentActivities.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-blue-900">Recent Activity</h3>
+              <span className="text-xs text-blue-700">{activeUsers} user{activeUsers !== 1 ? 's' : ''} online</span>
+            </div>
+            <div className="space-y-1">
+              {recentActivities.slice(0, 3).map((activity, index) => (
+                <div key={index} className="text-xs text-blue-800 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>
+                    <strong>{activity.userName}</strong> {activity.action.toLowerCase()}d 
+                    <strong> {activity.entityName}</strong>
+                    {activity.details && ` - ${activity.details}`}
+                  </span>
+                  <span className="text-blue-600">
+                    {new Date(activity.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Background Sync Status */}
+      {autoRefreshEnabled && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${syncStatus.isRunning ? 'bg-green-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                  <span className="text-sm font-medium text-blue-900">
+                    {syncStatus.isRunning ? 'Syncing cases...' : 'Auto-refresh enabled'}
+                  </span>
+                </div>
+                
+                {syncStatus.lastSync && (
+                  <span className="text-xs text-blue-700">
+                    Last sync: {new Date(syncStatus.lastSync).toLocaleTimeString()}
+                  </span>
+                )}
+                
+                {syncStatus.nextSync && (
+                  <span className="text-xs text-blue-700">
+                    Next sync: {new Date(syncStatus.nextSync).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-2 text-xs text-blue-700">
+                <span>Interval: {refreshInterval} min</span>
+                <span>•</span>
+                <span>Cases: {syncStatus.totalCases}</span>
+                {syncStatus.updatedCases > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-green-700">Updated: {syncStatus.updatedCases}</span>
+                  </>
+                )}
+                {syncStatus.failedCases > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-red-700">Failed: {syncStatus.failedCases}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -920,7 +1932,7 @@ export default function CasesPage() {
               </p>
             </div>
             <ul className="divide-y divide-gray-200">
-              {cases.map((caseItem) => (
+              {filteredCases.map((caseItem) => (
                 <li key={caseItem.id} className="hover:bg-gray-50">
                   <div className="px-4 py-4 flex items-center justify-between">
                     <div className="flex-1">
@@ -998,11 +2010,6 @@ export default function CasesPage() {
                       <p className="text-sm text-gray-500 mb-2">
                         {caseItem.nextHearingDate ? `Next Hearing: ${new Date(caseItem.nextHearingDate).toLocaleDateString()}` : 'No upcoming hearings'}
                       </p>
-                      {caseItem.lastRefreshed && (
-                        <p className="text-xs text-blue-600 mb-2">
-                          Last Refreshed: {new Date(caseItem.lastRefreshed).toLocaleString()}
-                        </p>
-                      )}
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(caseItem)}
@@ -1272,8 +2279,70 @@ export default function CasesPage() {
                            </svg>
                          </div>
                          <div className="ml-3">
-                           <h4 className="text-sm font-medium text-green-800">Kleopatra API Connected</h4>
-                           <p className="text-sm text-green-700">Real-time access to District Court data. Additional court types coming soon.</p>
+                           <h4 className="text-sm font-medium text-green-800">Official E-Courts API Connected</h4>
+                           <p className="text-sm text-green-700">Real-time access via Official E-Courts v17.0, Kleopatra, Phoenix, and Surepass APIs. Supports all court types: District Court, High Court, Supreme Court, NCLT, CAT, and Consumer Forum.</p>
+                         </div>
+                       </div>
+                     </div>
+
+                     {/* Court Data Loading Indicator */}
+                     {isLoadingCourtData && (
+                       <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                         <div className="flex items-center">
+                           <div className="flex-shrink-0">
+                             <svg className="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                             </svg>
+                           </div>
+                           <div className="ml-3">
+                             <h4 className="text-sm font-medium text-blue-800">Loading Court Data</h4>
+                             <p className="text-sm text-blue-700">Fetching latest court information from Kleopatra API...</p>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+
+                     {/* Court Data Error Indicator */}
+                     {courtDataError && (
+                       <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                         <div className="flex items-center">
+                           <div className="flex-shrink-0">
+                             <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                             </svg>
+                           </div>
+                           <div className="ml-3">
+                             <h4 className="text-sm font-medium text-yellow-800">Using Fallback Data</h4>
+                             <p className="text-sm text-yellow-700">Court data loading failed: {courtDataError}. Using pre-loaded court information.</p>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+
+                     {/* Usage Guide */}
+                     <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                       <div className="flex items-start">
+                         <div className="flex-shrink-0">
+                           <svg className="h-5 w-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                           </svg>
+                         </div>
+                         <div className="ml-3">
+                           <h4 className="text-sm font-medium text-gray-900">How to Use Advanced Search</h4>
+                           <div className="mt-2 text-sm text-gray-700">
+                             <ol className="list-decimal list-inside space-y-1">
+                               <li><strong>Select Court Type:</strong> Choose from District Court, High Court, Supreme Court, NCLT, CAT, or Consumer Forum</li>
+                               <li><strong>Choose Search Function:</strong> Pick the appropriate search method based on your available information</li>
+                               <li><strong>Enter Search Criteria:</strong> Fill in the required fields for your selected search function</li>
+                               <li><strong>Submit Search:</strong> Click "Search Cases" to find and import case data</li>
+                             </ol>
+                             <p className="mt-2 text-xs text-gray-600">
+                               💡 <strong>Tip:</strong> For District Court searches, you can use location filters to narrow down results by state, district, and complex.
+                               <br />
+                               🔄 <strong>Reliability:</strong> Our system automatically tries multiple API providers (Official E-Courts v17.0, Kleopatra, Phoenix, Surepass) to ensure the best results.
+                             </p>
+                           </div>
                          </div>
                        </div>
                      </div>
@@ -1370,6 +2439,246 @@ export default function CasesPage() {
                   </div>
                 )}
 
+                {/* High Court Functions Section */}
+                {advancedSearchForm.courtType === 'high' && (
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-purple-900">High Court Search Functions</h4>
+                        <p className="text-sm text-purple-700">Available search methods for High Court</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {highCourtFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="highCourtFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.highCourtFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('highCourtFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.highCourtFunction === option.value
+                                ? 'border-purple-500 bg-purple-100'
+                                : 'border-gray-300 hover:border-purple-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Supreme Court Functions Section */}
+                {advancedSearchForm.courtType === 'supreme' && (
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-red-900">Supreme Court Search Functions</h4>
+                        <p className="text-sm text-red-700">Available search methods for Supreme Court</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {supremeCourtFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="supremeCourtFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.supremeCourtFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('supremeCourtFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.supremeCourtFunction === option.value
+                                ? 'border-red-500 bg-red-100'
+                                : 'border-gray-300 hover:border-red-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* NCLT Functions Section */}
+                {advancedSearchForm.courtType === 'nclt' && (
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-orange-900">NCLT Search Functions</h4>
+                        <p className="text-sm text-orange-700">Available search methods for National Company Law Tribunal</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {ncltFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="ncltFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.ncltFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('ncltFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.ncltFunction === option.value
+                                ? 'border-orange-500 bg-orange-100'
+                                : 'border-gray-300 hover:border-orange-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* CAT Functions Section */}
+                {advancedSearchForm.courtType === 'cat' && (
+                  <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-indigo-900">CAT Search Functions</h4>
+                        <p className="text-sm text-indigo-700">Available search methods for Central Administrative Tribunal</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {catFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="catFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.catFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('catFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.catFunction === option.value
+                                ? 'border-indigo-500 bg-indigo-100'
+                                : 'border-gray-300 hover:border-indigo-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Consumer Forum Functions Section */}
+                {advancedSearchForm.courtType === 'consumer' && (
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <div className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="text-lg font-semibold text-yellow-900">Consumer Forum Search Functions</h4>
+                        <p className="text-sm text-yellow-700">Available search methods for Consumer Forum</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {consumerFunctions.map((option) => {
+                        const Icon = option.icon
+                        return (
+                          <label key={option.value} className="relative">
+                            <input
+                              type="radio"
+                              name="consumerFunction"
+                              value={option.value}
+                              checked={advancedSearchForm.consumerFunction === option.value}
+                              onChange={(e) => handleAdvancedSearchChange('consumerFunction', e.target.value)}
+                              className="sr-only"
+                            />
+                            <div className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              advancedSearchForm.consumerFunction === option.value
+                                ? 'border-yellow-500 bg-yellow-100'
+                                : 'border-gray-300 hover:border-yellow-400 bg-white'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="h-5 w-5 text-gray-600" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{option.label}</span>
+                                  <p className="text-xs text-gray-600">{option.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Search Parameters Section */}
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <div className="flex items-center mb-4">
@@ -1416,10 +2725,15 @@ export default function CasesPage() {
                           onChange={(e) => handleAdvancedSearchChange('state', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           required
+                          disabled={isLoadingCourtData}
                         >
-                          <option value="">Select State</option>
-                          {states.map(state => (
-                            <option key={state} value={state}>{state}</option>
+                          <option value="">
+                            {isLoadingCourtData ? 'Loading states...' : 'Select State'}
+                          </option>
+                          {(staticCourtData.states.length > 0 ? staticCourtData.states : fallbackStates.map(name => ({ id: name.toLowerCase(), name }))).map(state => (
+                            <option key={state.id || (state as any)} value={state.name || (state as any)}>
+                              {state.name || (state as any)}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1436,10 +2750,15 @@ export default function CasesPage() {
                             onChange={(e) => handleAdvancedSearchChange('district', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             required
+                            disabled={isLoadingCourtData}
                           >
-                            <option value="">Select District</option>
-                            {districts[advancedSearchForm.state as keyof typeof districts]?.map(district => (
-                              <option key={district} value={district}>{district}</option>
+                            <option value="">
+                              {isLoadingCourtData ? 'Loading districts...' : 'Select District'}
+                            </option>
+                            {(staticCourtData.districts.length > 0 ? staticCourtData.districts : fallbackDistricts[advancedSearchForm.state as keyof typeof fallbackDistricts]?.map(name => ({ id: name.toLowerCase(), name })) || []).map(district => (
+                              <option key={district.id || (district as any)} value={district.name || (district as any)}>
+                                {district.name || (district as any)}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -1456,10 +2775,15 @@ export default function CasesPage() {
                             value={advancedSearchForm.complex}
                             onChange={(e) => handleAdvancedSearchChange('complex', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            disabled={isLoadingCourtData}
                           >
-                            <option value="">Entire District</option>
-                            {complexes[advancedSearchForm.district as keyof typeof complexes]?.map(complex => (
-                              <option key={complex} value={complex}>{complex}</option>
+                            <option value="">
+                              {isLoadingCourtData ? 'Loading complexes...' : 'Entire District'}
+                            </option>
+                            {(staticCourtData.complexes.length > 0 ? staticCourtData.complexes : fallbackComplexes[advancedSearchForm.district as keyof typeof fallbackComplexes]?.map(name => ({ id: name.toLowerCase(), name })) || []).map(complex => (
+                              <option key={complex.id || (complex as any)} value={complex.name || (complex as any)}>
+                                {complex.name || (complex as any)}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -1526,10 +2850,33 @@ export default function CasesPage() {
                         type="text"
                         value={advancedSearchForm.advocateName}
                         onChange={(e) => handleAdvancedSearchChange('advocateName', e.target.value)}
-                        placeholder="Enter advocate name"
+                        placeholder="Enter advocate name (e.g., John Doe, Smith Kumar)"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
+                      <div className="mt-1 text-xs text-gray-500">
+                        💡 Test with Karnataka state code (KAR) and year 2021
+                      </div>
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-blue-800">Advocate Search Note</h3>
+                            <div className="mt-2 text-sm text-blue-700">
+                              <p>Advocate search may have limited results. If no cases are found, try:</p>
+                              <ul className="mt-1 list-disc list-inside">
+                                <li>Searching by Party Name instead</li>
+                                <li>Using CNR Lookup if you have the case number</li>
+                                <li>Checking the spelling of the advocate name</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1545,10 +2892,13 @@ export default function CasesPage() {
                           type="text"
                           value={advancedSearchForm.advocateNumber}
                           onChange={(e) => handleAdvancedSearchChange('advocateNumber', e.target.value)}
-                          placeholder="Enter advocate registration number"
+                          placeholder="Enter advocate registration number (e.g., 2271)"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           required
                         />
+                        <div className="mt-1 text-xs text-gray-500">
+                          💡 Test with registration number 2271, Karnataka (KAR), year 2021
+                        </div>
                       </div>
                       
                       <div>
@@ -1563,7 +2913,7 @@ export default function CasesPage() {
                           required
                         >
                           <option value="">Select State</option>
-                          {states.map((state) => (
+                          {fallbackStates.map((state: string) => (
                             <option key={state} value={state}>
                               {state}
                             </option>
@@ -1608,18 +2958,279 @@ export default function CasesPage() {
                     </div>
                   )}
 
-                  {/* Other Court Types - Coming Soon */}
-                  {advancedSearchForm.courtType !== 'district' && (
-                    <div className="text-center py-8">
-                      <div className="text-gray-500 mb-2">
-                        <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                  {/* High Court Search Parameters */}
+                  {advancedSearchForm.courtType === 'high' && advancedSearchForm.highCourtFunction === 'cnr' && (
+                    <div className="mb-4">
+                      <label htmlFor="high-cnr-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Case Number Reference (CNR) *
+                      </label>
+                      <input
+                        id="high-cnr-number"
+                        type="text"
+                        value={advancedSearchForm.cnrNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('cnrNumber', e.target.value)}
+                        placeholder="Enter CNR number (e.g., DLHC010153302024)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        required
+                      />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
-                      <p className="text-gray-600">
-                        Search functions for {courtTypeOptions.find(opt => opt.value === advancedSearchForm.courtType)?.label} are currently under development.
-                      </p>
+                  )}
+
+                  {advancedSearchForm.courtType === 'high' && advancedSearchForm.highCourtFunction === 'party' && (
+                    <div className="mb-4">
+                      <label htmlFor="high-party-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Party Name *
+                      </label>
+                      <input
+                        id="high-party-name"
+                        type="text"
+                        value={advancedSearchForm.partyName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('partyName', e.target.value)}
+                        placeholder="Enter party name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'high' && advancedSearchForm.highCourtFunction === 'advocate' && (
+                    <div className="mb-4">
+                      <label htmlFor="high-advocate-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Advocate Name *
+                      </label>
+                      <input
+                        id="high-advocate-name"
+                        type="text"
+                        value={advancedSearchForm.advocateName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('advocateName', e.target.value)}
+                        placeholder="Enter advocate name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'high' && advancedSearchForm.highCourtFunction === 'filing' && (
+                    <div className="mb-4">
+                      <label htmlFor="high-filing-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Filing Number *
+                      </label>
+                      <input
+                        id="high-filing-number"
+                        type="text"
+                        value={advancedSearchForm.filingNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('filingNumber', e.target.value)}
+                        placeholder="Enter filing number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Supreme Court Search Parameters */}
+                  {advancedSearchForm.courtType === 'supreme' && advancedSearchForm.supremeCourtFunction === 'diary' && (
+                    <div className="mb-4">
+                      <label htmlFor="supreme-diary-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Diary Number *
+                      </label>
+                      <input
+                        id="supreme-diary-number"
+                        type="text"
+                        value={advancedSearchForm.diaryNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('diaryNumber', e.target.value)}
+                        placeholder="Enter diary number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'supreme' && advancedSearchForm.supremeCourtFunction === 'party' && (
+                    <div className="mb-4">
+                      <label htmlFor="supreme-party-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Party Name *
+                      </label>
+                      <input
+                        id="supreme-party-name"
+                        type="text"
+                        value={advancedSearchForm.partyName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('partyName', e.target.value)}
+                        placeholder="Enter party name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'supreme' && advancedSearchForm.supremeCourtFunction === 'orders' && (
+                    <div className="mb-4">
+                      <label htmlFor="supreme-order-date" className="block text-sm font-medium text-gray-700 mb-2">
+                        Order Date *
+                      </label>
+                      <input
+                        id="supreme-order-date"
+                        type="date"
+                        value={advancedSearchForm.orderDate || ''}
+                        onChange={(e) => handleAdvancedSearchChange('orderDate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'supreme' && advancedSearchForm.supremeCourtFunction === 'aor' && (
+                    <div className="mb-4">
+                      <label htmlFor="supreme-aor-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        AOR Number *
+                      </label>
+                      <input
+                        id="supreme-aor-number"
+                        type="text"
+                        value={advancedSearchForm.aorNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('aorNumber', e.target.value)}
+                        placeholder="Enter AOR number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* NCLT Search Parameters */}
+                  {advancedSearchForm.courtType === 'nclt' && advancedSearchForm.ncltFunction === 'caseNumber' && (
+                    <div className="mb-4">
+                      <label htmlFor="nclt-case-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Case Number *
+                      </label>
+                      <input
+                        id="nclt-case-number"
+                        type="text"
+                        value={advancedSearchForm.caseNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('caseNumber', e.target.value)}
+                        placeholder="Enter case number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'nclt' && advancedSearchForm.ncltFunction === 'filingNumber' && (
+                    <div className="mb-4">
+                      <label htmlFor="nclt-filing-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Filing Number *
+                      </label>
+                      <input
+                        id="nclt-filing-number"
+                        type="text"
+                        value={advancedSearchForm.filingNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('filingNumber', e.target.value)}
+                        placeholder="Enter filing number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'nclt' && advancedSearchForm.ncltFunction === 'party' && (
+                    <div className="mb-4">
+                      <label htmlFor="nclt-party-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Party Name *
+                      </label>
+                      <input
+                        id="nclt-party-name"
+                        type="text"
+                        value={advancedSearchForm.partyName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('partyName', e.target.value)}
+                        placeholder="Enter party name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* CAT Search Parameters */}
+                  {advancedSearchForm.courtType === 'cat' && advancedSearchForm.catFunction === 'caseNumber' && (
+                    <div className="mb-4">
+                      <label htmlFor="cat-case-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Case Number *
+                      </label>
+                      <input
+                        id="cat-case-number"
+                        type="text"
+                        value={advancedSearchForm.caseNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('caseNumber', e.target.value)}
+                        placeholder="Enter case number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'cat' && advancedSearchForm.catFunction === 'diaryNumber' && (
+                    <div className="mb-4">
+                      <label htmlFor="cat-diary-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Diary Number *
+                      </label>
+                      <input
+                        id="cat-diary-number"
+                        type="text"
+                        value={advancedSearchForm.diaryNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('diaryNumber', e.target.value)}
+                        placeholder="Enter diary number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'cat' && advancedSearchForm.catFunction === 'party' && (
+                    <div className="mb-4">
+                      <label htmlFor="cat-party-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Party Name *
+                      </label>
+                      <input
+                        id="cat-party-name"
+                        type="text"
+                        value={advancedSearchForm.partyName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('partyName', e.target.value)}
+                        placeholder="Enter party name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {advancedSearchForm.courtType === 'cat' && advancedSearchForm.catFunction === 'advocate' && (
+                    <div className="mb-4">
+                      <label htmlFor="cat-advocate-name" className="block text-sm font-medium text-gray-700 mb-2">
+                        Advocate Name *
+                      </label>
+                      <input
+                        id="cat-advocate-name"
+                        type="text"
+                        value={advancedSearchForm.advocateName || ''}
+                        onChange={(e) => handleAdvancedSearchChange('advocateName', e.target.value)}
+                        placeholder="Enter advocate name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Consumer Forum Search Parameters */}
+                  {advancedSearchForm.courtType === 'consumer' && advancedSearchForm.consumerFunction === 'caseDetails' && (
+                    <div className="mb-4">
+                      <label htmlFor="consumer-case-number" className="block text-sm font-medium text-gray-700 mb-2">
+                        Case Number *
+                      </label>
+                      <input
+                        id="consumer-case-number"
+                        type="text"
+                        value={advancedSearchForm.consumerCaseNumber || ''}
+                        onChange={(e) => handleAdvancedSearchChange('consumerCaseNumber', e.target.value)}
+                        placeholder="Enter case number"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
+                        required
+                      />
                     </div>
                   )}
                 </div>
@@ -1650,8 +3261,8 @@ export default function CasesPage() {
                         </svg>
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-green-800">Success</h3>
-                        <div className="mt-2 text-sm text-green-700">{searchSuccess}</div>
+                        <h3 className="text-sm font-medium text-green-800">Search Successful</h3>
+                        <div className="mt-2 text-sm text-green-700 whitespace-pre-line">{searchSuccess}</div>
                       </div>
                     </div>
                   </div>
@@ -1668,7 +3279,7 @@ export default function CasesPage() {
                   </button>
                          <button
                            type="submit"
-                           disabled={isLoadingCNR || !isFormValid()}
+                           disabled={isLoadingCNR || !isFormValid() || isLoadingCourtData}
                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                          >
                     {isLoadingCNR ? (
@@ -1678,6 +3289,14 @@ export default function CasesPage() {
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                         Searching...
+                      </>
+                    ) : isLoadingCourtData ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading Data...
                       </>
                     ) : (
                       <>
@@ -2313,6 +3932,64 @@ export default function CasesPage() {
                 >
                   Edit Case
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Migration Modal */}
+      {showMigrationModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+                <CloudIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Migrate to Cloud Storage</h3>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500 mb-4">
+                  We found {migrationService.getMigrationSummary().localCasesCount} cases in your local storage. 
+                  Would you like to migrate them to cloud storage so all users can access them?
+                </p>
+                
+                {isMigrating && (
+                  <div className="mb-4">
+                    <div className="bg-gray-200 rounded-full h-2 mb-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${migrationStatus.progress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {migrationStatus.progress}% complete ({migrationStatus.migratedCases}/{migrationStatus.totalCases} cases)
+                    </p>
+                    {migrationStatus.errors.length > 0 && (
+                      <div className="mt-2 text-xs text-red-600">
+                        {migrationStatus.errors[migrationStatus.errors.length - 1]}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="items-center px-4 py-3">
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleStartMigration}
+                    disabled={isMigrating}
+                    className="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isMigrating ? 'Migrating...' : 'Migrate Now'}
+                  </button>
+                  <button
+                    onClick={handleSkipMigration}
+                    disabled={isMigrating}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 text-base font-medium rounded-md shadow-sm hover:bg-gray-400 disabled:opacity-50"
+                  >
+                    Skip
+                  </button>
+                </div>
               </div>
             </div>
           </div>

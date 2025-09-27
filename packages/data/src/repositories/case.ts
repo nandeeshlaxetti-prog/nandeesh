@@ -390,10 +390,10 @@ export class CaseRepository extends BaseRepositoryImpl<
     // Search filter
     if (filters.search) {
       where.OR = [
-        { caseNumber: { contains: filters.search, mode: 'insensitive' } },
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
-        { courtName: { contains: filters.search, mode: 'insensitive' } },
+        { caseNumber: { contains: filters.search } },
+        { title: { contains: filters.search } },
+        { description: { contains: filters.search } },
+        { courtName: { contains: filters.search } },
       ]
     }
 
@@ -429,7 +429,7 @@ export class CaseRepository extends BaseRepositoryImpl<
 
     // Court filter
     if (filters.courtName) {
-      where.courtName = { contains: filters.courtName, mode: 'insensitive' }
+      where.courtName = { contains: filters.courtName }
     }
 
     // Confidential filter

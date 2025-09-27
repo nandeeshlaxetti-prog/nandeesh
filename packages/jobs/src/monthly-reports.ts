@@ -4,15 +4,15 @@ export async function generateMonthlyReports(): Promise<void> {
   console.log('Generating monthly reports...')
   
   try {
-    const cases = await db.getAllCases()
-    const users = await db.getAllUsers()
+    const cases = await db.case.findMany()
+    const users = await db.user.findMany()
     
     const report = {
       totalCases: cases.length,
-      activeCases: cases.filter(c => c.status !== 'CLOSED').length,
-      closedCases: cases.filter(c => c.status === 'CLOSED').length,
+      activeCases: cases.filter((c: any) => c.status !== 'CLOSED').length,
+      closedCases: cases.filter((c: any) => c.status === 'CLOSED').length,
       totalUsers: users.length,
-      activeUsers: users.filter(u => u.isActive).length,
+      activeUsers: users.filter((u: any) => u.isActive).length,
       generatedAt: new Date().toISOString(),
     }
     

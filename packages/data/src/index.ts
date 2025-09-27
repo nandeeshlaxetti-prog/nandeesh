@@ -1,6 +1,6 @@
 // Export database and repositories
 export * from './database'
-export { Database } from './database'
+export { PrismaClient as Database } from '@prisma/client'
 export { db } from './database'
 
 // Export authentication services

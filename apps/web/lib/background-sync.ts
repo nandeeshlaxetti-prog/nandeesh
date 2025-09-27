@@ -164,7 +164,7 @@ class BackgroundSyncService {
    */
   private async updateCase(caseItem: any): Promise<CaseUpdateResult> {
     try {
-      const response = await fetch('/api/ecourts/cnr', {
+      const response = await fetch('/api/ecourts/cnr/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cnr: caseItem.cnrNumber })
@@ -239,7 +239,10 @@ class BackgroundSyncService {
    */
   private getStoredCases(): any[] {
     try {
-      const stored = localStorage.getItem('legal-desktop-cases');
+      if (typeof window === 'undefined' || !localStorage) {
+        return [];
+      }
+      const stored = localStorage.getItem('legal-cases');
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('❌ Failed to load stored cases:', error);
@@ -264,7 +267,9 @@ class BackgroundSyncService {
           lastUpdated: new Date().toISOString()
         };
         
-        localStorage.setItem('legal-desktop-cases', JSON.stringify(storedCases));
+        if (typeof window !== 'undefined' && localStorage) {
+          localStorage.setItem('legal-cases', JSON.stringify(storedCases));
+        }
       }
     } catch (error) {
       console.error('❌ Failed to update stored case:', error);
@@ -321,7 +326,9 @@ class BackgroundSyncService {
         syncIntervalMs: this.syncIntervalMs,
         lastSync: this.lastSync?.toISOString()
       };
-      localStorage.setItem('legal-desktop-sync-settings', JSON.stringify(settings));
+      if (typeof window !== 'undefined' && localStorage) {
+        localStorage.setItem('legal-desktop-sync-settings', JSON.stringify(settings));
+      }
     } catch (error) {
       console.error('❌ Failed to save sync settings:', error);
     }
@@ -332,6 +339,11 @@ class BackgroundSyncService {
    */
   private loadSettings(): void {
     try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || !localStorage) {
+        return;
+      }
+      
       const stored = localStorage.getItem('legal-desktop-sync-settings');
       if (stored) {
         const settings = JSON.parse(stored);

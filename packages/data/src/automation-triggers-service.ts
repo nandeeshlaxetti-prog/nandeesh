@@ -153,8 +153,7 @@ export class AutomationTriggersService {
           where: {
             caseId: document.caseId,
             title: {
-              contains: 'Order',
-              mode: 'insensitive'
+              contains: 'Order'
             }
           }
         })

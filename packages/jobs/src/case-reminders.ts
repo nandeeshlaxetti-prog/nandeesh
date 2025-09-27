@@ -4,10 +4,15 @@ export async function sendCaseReminders(): Promise<void> {
   console.log('Sending case reminders...')
   
   try {
-    const cases = await db.getAllCases()
-    const activeCases = cases.filter(case_ => 
-      case_.status === 'OPEN' || case_.status === 'IN_PROGRESS'
-    )
+    const cases = await db.case.findMany({
+      where: {
+        OR: [
+          { status: 'OPEN' },
+          { status: 'IN_PROGRESS' }
+        ]
+      }
+    })
+    const activeCases = cases
     
     console.log(`Found ${activeCases.length} active cases`)
     
@@ -16,7 +21,7 @@ export async function sendCaseReminders(): Promise<void> {
     // 2. Send email notifications to assigned lawyers
     // 3. Update case status if needed
     
-    activeCases.forEach(case_ => {
+    activeCases.forEach((case_: any) => {
       console.log(`Reminder for case: ${case_.caseNumber} - ${case_.title}`)
     })
     

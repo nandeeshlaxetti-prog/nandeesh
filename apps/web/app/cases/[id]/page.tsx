@@ -79,15 +79,13 @@ const getCasesFromStorage = (): Case[] => {
   }
 }
 
-// Helper function to format case number with case type prefix
+// Helper function to format case number
 const formatCaseNumber = (caseItem: Case): string => {
   if (!caseItem.caseNumber) return 'Not specified'
   
-  const caseType = caseItem.caseType || 'CIVIL'
-  const registrationNumber = caseItem.caseNumber
-  
   // Format: "OS No. 200/2025" or "CIVIL No. 200/2025"
-  return `${caseType} No. ${registrationNumber}`
+  const caseType = caseItem.caseType || 'CIVIL'
+  return `${caseType} No. ${caseItem.caseNumber}`
 }
 
 // Helper function to format dates consistently

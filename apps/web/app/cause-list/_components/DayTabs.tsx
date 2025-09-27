@@ -1,41 +1,32 @@
 'use client'
 
 import React from 'react'
-import { formatDateForDisplay } from '../_utils/date'
+import { formatIST } from '@/lib/date-ist'
 
-interface DayTabsProps {
-  dateRange: string[]
-  selectedDate: string
-  onDateSelect: (date: string) => void
-  getDateCount: (date: string) => number
+interface DateLabel {
+  offset: number
+  label: string
+  date: Date
 }
 
-export function DayTabs({ dateRange, selectedDate, onDateSelect, getDateCount }: DayTabsProps) {
-  const getTabLabel = (date: string, index: number) => {
-    const today = new Date().toISOString().split('T')[0]
-    const diff = new Date(date).getTime() - new Date(today).getTime()
-    const daysDiff = Math.round(diff / (1000 * 60 * 60 * 24))
-    
-    if (daysDiff === 0) return 'Today'
-    if (daysDiff === -1) return 'D-1'
-    if (daysDiff === -2) return 'D-2'
-    if (daysDiff === 1) return 'D+1'
-    if (daysDiff === 2) return 'D+2'
-    
-    return `D${daysDiff > 0 ? '+' : ''}${daysDiff}`
-  }
+interface DayTabsProps {
+  dateLabels: DateLabel[]
+  selectedOffset: number
+  onOffsetSelect: (offset: number) => void
+  getDateCount: (offset: number) => number
+}
 
+export function DayTabs({ dateLabels, selectedOffset, onOffsetSelect, getDateCount }: DayTabsProps) {
   return (
     <div className="inline-flex gap-2">
-      {dateRange.map((date, index) => {
-        const isSelected = date === selectedDate
-        const count = getDateCount(date)
-        const label = getTabLabel(date, index)
+      {dateLabels.map(({ offset, label, date }) => {
+        const isSelected = offset === selectedOffset
+        const count = getDateCount(offset)
         
         return (
           <button
-            key={date}
-            onClick={() => onDateSelect(date)}
+            key={offset}
+            onClick={() => onOffsetSelect(offset)}
             className={`
               inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium transition-colors
               ${isSelected 
@@ -47,7 +38,7 @@ export function DayTabs({ dateRange, selectedDate, onDateSelect, getDateCount }:
           >
             <span>{label}</span>
             <span className="text-xs text-gray-500">
-              {formatDateForDisplay(date)}
+              {formatIST(date, 'DD/MM')}
             </span>
             <span className={`
               rounded bg-neutral-100 text-neutral-700 text-xs px-2 py-0.5
@@ -61,4 +52,14 @@ export function DayTabs({ dateRange, selectedDate, onDateSelect, getDateCount }:
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
 

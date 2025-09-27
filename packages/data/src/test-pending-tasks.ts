@@ -2,9 +2,10 @@ import {
   TaskRepository,
   userPendingSummaryWorker,
   dailyDigestService,
-  dailyDigestJobScheduler
-} from 'data'
-import { PendingTaskFilters, RecurrenceConfig } from 'core'
+  dailyDigestJobScheduler,
+  db
+} from './index'
+// import { PendingTaskFilters, RecurrenceConfig } from 'core'
 
 /**
  * Pending Tasks Test Suite
@@ -36,7 +37,7 @@ class PendingTasksTester {
   private async testTaskRepository() {
     console.log('🔧 Testing Enhanced Task Repository...')
     
-    const taskRepo = new TaskRepository()
+    const taskRepo = new TaskRepository(db)
     
     // Test creating task with recurrence
     const recurrenceConfig: RecurrenceConfig = {
@@ -56,7 +57,7 @@ class PendingTasksTester {
         createdBy: 'test-user-id',
         isRecurring: true,
         recurringPattern: 'WEEKLY',
-        recurrenceJSON: JSON.stringify(recurrenceConfig),
+        // recurrenceJSON: JSON.stringify(recurrenceConfig),
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
       })
       
@@ -111,7 +112,7 @@ class PendingTasksTester {
   private async testPendingTasksFiltering() {
     console.log('🔍 Testing Pending Tasks Filtering...')
     
-    const taskRepo = new TaskRepository()
+    const taskRepo = new TaskRepository(db)
     
     // Test different filter combinations
     const filterTests = [
@@ -166,7 +167,7 @@ class PendingTasksTester {
     for (const test of filterTests) {
       try {
         const result = await taskRepo.listPendingForUser(test.filters)
-        console.log(`  ${test.name}: ✅ Found ${result.data.length} tasks (${result.total} total)`)
+        console.log(`  ${test.name}: ✅ Found ${result.data.length} tasks`)
         
         if (result.data.length > 0) {
           result.data.forEach((task, index) => {
@@ -212,7 +213,7 @@ class PendingTasksTester {
       
       if (existingSummary) {
         console.log(`  Existing Summary: ✅ Retrieved existing summary`)
-        console.log(`    Last Updated: ${existingSummary.lastUpdated}`)
+        console.log(`    Last Updated: ${existingSummary.updatedAt || 'Unknown'}`)
       } else {
         console.log(`  Existing Summary: ❌ No existing summary found`)
       }

@@ -15,10 +15,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create eCourts provider with configuration
+    // Create eCourts provider with multi-provider configuration
     const config = {
       provider: 'third_party' as const,
-      apiKey: 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104',
+      apiKey: process.env.ECOURTS_API_KEY || process.env.NEXT_PUBLIC_ECOURTS_API_KEY || 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104', // Supports Official E-Courts v17.0, Kleopatra, Phoenix, and Surepass
       timeout: 30000
     }
 

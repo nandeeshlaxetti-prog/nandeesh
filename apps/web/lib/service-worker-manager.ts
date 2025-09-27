@@ -148,6 +148,11 @@ export class ServiceWorkerManager {
    * Listen for messages from service worker
    */
   onMessage(callback: (event: MessageEvent) => void): () => void {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || !navigator?.serviceWorker) {
+      return () => {}; // Return empty cleanup function
+    }
+
     const messageHandler = (event: MessageEvent) => {
       callback(event);
     };
@@ -156,7 +161,9 @@ export class ServiceWorkerManager {
 
     // Return cleanup function
     return () => {
-      navigator.serviceWorker.removeEventListener('message', messageHandler);
+      if (navigator?.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', messageHandler);
+      }
     };
   }
 
@@ -187,4 +194,8 @@ export class ServiceWorkerManager {
 
 // Export singleton instance
 export const serviceWorkerManager = ServiceWorkerManager.getInstance();
+
+
+
+
 

@@ -7,11 +7,9 @@
   --foreground: #000000;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #000000;
-    --foreground: #ffffff;
-  }
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 body {
@@ -24,4 +22,61 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Skeleton animations */
+@keyframes pulse-skeleton { 
+  0%, 100% { opacity: 0.65 } 
+  50% { opacity: 0.35 } 
+}
+
+.skeleton { 
+  @apply bg-gray-200 dark:bg-gray-800 rounded-md; 
+  animation: pulse-skeleton 1.2s ease-in-out infinite; 
+}
+
+/* Focus ring */
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* NProgress customization */
+#nprogress .bar {
+  background: rgb(59, 130, 246) !important; /* accent color */
+  height: 2px !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px rgb(59, 130, 246), 0 0 5px rgb(59, 130, 246) !important;
+}
+
+#nprogress .spinner {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #nprogress .bar {
+    transition: none !important;
+  }
+}
+
+/* Dark mode NProgress */
+.dark #nprogress .bar {
+  background: rgb(59, 130, 246) !important;
+}
+
+.dark #nprogress .peg {
+  box-shadow: 0 0 10px rgb(59, 130, 246), 0 0 5px rgb(59, 130, 246) !important;
 }

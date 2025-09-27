@@ -61,7 +61,7 @@ export class EmployeeRepository {
   }
   
   async findByUserId(userId: string): Promise<Employee | null> {
-    return await db.employee.findUnique({
+    const result = await db.employee.findUnique({
       where: { userId },
       include: {
         user: true,
@@ -69,6 +69,8 @@ export class EmployeeRepository {
         reports: true
       }
     })
+    
+    return result ? mapEmployeeFromPrisma(result) : null
   }
   
   async findMany(filters?: {
@@ -112,7 +114,7 @@ export class EmployeeRepository {
   }
   
   async update(id: string, data: UpdateEmployee): Promise<Employee> {
-    return await db.employee.update({
+    const result = await db.employee.update({
       where: { id },
       data,
       include: {
@@ -121,6 +123,8 @@ export class EmployeeRepository {
         reports: true
       }
     })
+    
+    return mapEmployeeFromPrisma(result)
   }
   
   async delete(id: string): Promise<void> {
@@ -153,8 +157,8 @@ export class EmployeeRepository {
       })
       
       for (const report of reports) {
-        hierarchy.push(report)
-        await getReports(report)
+        hierarchy.push(report as any)
+        await getReports(report as any)
       }
     }
     
@@ -163,7 +167,7 @@ export class EmployeeRepository {
   }
   
   async getDepartmentEmployees(department: string): Promise<Employee[]> {
-    return await db.employee.findMany({
+    const results = await db.employee.findMany({
       where: {
         department,
         isActive: true
@@ -177,6 +181,8 @@ export class EmployeeRepository {
         employeeId: 'asc'
       }
     })
+    
+    return results.map(result => mapEmployeeFromPrisma(result))
   }
 }
 
@@ -187,7 +193,7 @@ export class EmployeeRepository {
 export class ProjectRepository {
   
   async create(data: CreateProject): Promise<Project> {
-    return await db.project.create({
+    const result = await db.project.create({
       data: {
         ...data,
         tags: data.tags || '[]',
@@ -202,10 +208,12 @@ export class ProjectRepository {
         cases: true
       }
     })
+    
+    return mapProjectFromPrisma(result)
   }
   
   async findById(id: string): Promise<Project | null> {
-    return await db.project.findUnique({
+    const result = await db.project.findUnique({
       where: { id },
       include: {
         client: true,
@@ -214,10 +222,12 @@ export class ProjectRepository {
         cases: true
       }
     })
+    
+    return result ? mapProjectFromPrisma(result) : null
   }
   
   async findByCode(code: string): Promise<Project | null> {
-    return await db.project.findUnique({
+    const result = await db.project.findUnique({
       where: { code },
       include: {
         client: true,
@@ -226,6 +236,8 @@ export class ProjectRepository {
         cases: true
       }
     })
+    
+    return result ? mapProjectFromPrisma(result) : null
   }
   
   async findMany(filters?: {
@@ -261,7 +273,7 @@ export class ProjectRepository {
       where.isActive = filters.isActive
     }
     
-    return await db.project.findMany({
+    const results = await db.project.findMany({
       where,
       include: {
         client: true,
@@ -273,10 +285,12 @@ export class ProjectRepository {
         createdAt: 'desc'
       }
     })
+    
+    return results.map(result => mapProjectFromPrisma(result))
   }
   
   async update(id: string, data: UpdateProject): Promise<Project> {
-    return await db.project.update({
+    const result = await db.project.update({
       where: { id },
       data,
       include: {
@@ -286,6 +300,8 @@ export class ProjectRepository {
         cases: true
       }
     })
+    
+    return mapProjectFromPrisma(result)
   }
   
   async delete(id: string): Promise<void> {
@@ -295,7 +311,7 @@ export class ProjectRepository {
   }
   
   async getTeamProjects(teamId: string): Promise<Project[]> {
-    return await db.project.findMany({
+    const results = await db.project.findMany({
       where: {
         teamId,
         isActive: true
@@ -310,10 +326,12 @@ export class ProjectRepository {
         createdAt: 'desc'
       }
     })
+    
+    return results.map(result => mapProjectFromPrisma(result))
   }
   
   async getClientProjects(clientId: string): Promise<Project[]> {
-    return await db.project.findMany({
+    const results = await db.project.findMany({
       where: {
         clientId,
         isActive: true
@@ -328,6 +346,8 @@ export class ProjectRepository {
         createdAt: 'desc'
       }
     })
+    
+    return results.map(result => mapProjectFromPrisma(result))
   }
 }
 

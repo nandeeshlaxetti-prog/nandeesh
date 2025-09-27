@@ -360,3 +360,13 @@ export function NewClientModal({ isOpen, onClose, onAddClient, editingClient }: 
   );
 }
 
+
+
+
+
+
+
+
+
+
+
