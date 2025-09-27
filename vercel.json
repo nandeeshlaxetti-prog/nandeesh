@@ -4,11 +4,6 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": "nextjs",
-  "functions": {
-    "apps/web/app/api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "env": {
     "NODE_ENV": "production",
     "APP_MODE": "web",
@@ -21,7 +16,6 @@
       "NODE_ENV": "production"
     }
   },
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/web/",
   "headers": [
     {
       "source": "/(.*)",
