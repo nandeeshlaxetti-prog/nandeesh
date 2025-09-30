@@ -4,11 +4,6 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "functions": {
-    "apps/web/app/api/**/*.ts": {
-      "runtime": "@vercel/node@3.0.7"
-    }
-  },
   "env": {
     "NODE_ENV": "production",
     "APP_MODE": "web",
