@@ -4,7 +4,6 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "rootDirectory": "apps/web",
   "env": {
     "NODE_ENV": "production",
     "APP_MODE": "web",
