@@ -19,7 +19,7 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       isAuthenticated: false,
       user: null,
-      isLoading: false,
+      isLoading: true,
 
       login: async ({ email, password, remember }) => {
         set({ isLoading: true })
@@ -58,7 +58,8 @@ export const useAuth = create<AuthState>()(
       setAuthenticated: (authenticated, user) => {
         set({ 
           isAuthenticated: authenticated, 
-          user: user || null 
+          user: user || null,
+          isLoading: false
         })
       }
     }),

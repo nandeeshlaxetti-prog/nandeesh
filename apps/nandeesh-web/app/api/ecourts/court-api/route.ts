@@ -3,7 +3,6 @@ import {
   getCaseByCnr, 
   searchAdvanced, 
   Phoenix, 
-  Collector,
   normalizeToTable,
   AdvancedSearchParams,
   SearchMode 
