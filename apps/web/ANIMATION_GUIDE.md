@@ -170,3 +170,6 @@ To add animations to existing components:
 - **Performance issues**: Reduce animation complexity or disable for that component
 - **Accessibility**: Verify `prefers-reduced-motion` is being respected
 
+
+
+

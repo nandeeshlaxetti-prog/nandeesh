@@ -51,7 +51,7 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 
 # Example Configuration (replace with your actual values):
 # ======================================================
-# NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# NEXT_PUBLIC_FIREBASE_API_KEY=your-actual-api-key-here
 # NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=legal-desktop-app.firebaseapp.com
 # NEXT_PUBLIC_FIREBASE_PROJECT_ID=legal-desktop-app
 # NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=legal-desktop-app.appspot.com
@@ -85,6 +85,8 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 #     }
 #   }
 # }
+
+
 
 
 

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           year: year || 2025,
           caseType: caseType || 'CONSUMER'
         }),
-        signal: AbortSignal.timeout(30000) // 30 second timeout
+        signal: AbortSignal.timeout(120000) // 2 minute timeout
       });
 
       if (!response.ok) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
               stateCode: state || 'KAR',
               year: year || 2025
             }),
-            signal: AbortSignal.timeout(15000) // 15 second timeout for fallbacks
+            signal: AbortSignal.timeout(60000) // 1 minute timeout for fallbacks
           });
 
           if (fallbackResponse.ok) {

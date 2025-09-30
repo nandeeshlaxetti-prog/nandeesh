@@ -5,6 +5,7 @@ export type Employee = {
   name: string;
   role: Role;
   email?: string;
+  phone?: string;
 };
 
 export type FilterType = 'All' | Role;

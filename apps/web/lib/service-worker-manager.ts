@@ -157,13 +157,11 @@ export class ServiceWorkerManager {
       callback(event);
     };
 
-    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
-      navigator.serviceWorker.addEventListener('message', messageHandler);
-    }
+    navigator.serviceWorker.addEventListener('message', messageHandler);
 
     // Return cleanup function
     return () => {
-      if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      if (navigator?.serviceWorker) {
         navigator.serviceWorker.removeEventListener('message', messageHandler);
       }
     };

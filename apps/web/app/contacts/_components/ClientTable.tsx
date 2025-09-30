@@ -144,3 +144,6 @@ export function ClientTable({ clients, onEditClient, onDeleteClient, onViewClien
 
 
 
+
+
+

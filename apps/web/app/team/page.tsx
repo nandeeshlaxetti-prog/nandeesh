@@ -105,7 +105,7 @@ export default function TeamPage() {
               </div>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                 <p>{employee.email}</p>
-                <p>{employee.phone}</p>
+                {employee.phone && <p>{employee.phone}</p>}
               </div>
             </div>
           ))}

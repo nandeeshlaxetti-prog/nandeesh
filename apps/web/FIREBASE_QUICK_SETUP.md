@@ -47,7 +47,7 @@ Your Firestore database should have these collections:
 
 ## Example Configuration
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+NEXT_PUBLIC_FIREBASE_API_KEY=your-actual-api-key-here
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=legal-desktop-app.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=legal-desktop-app
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=legal-desktop-app.appspot.com
@@ -61,6 +61,8 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 - **Permission denied**: Update Firestore security rules
 - **CORS errors**: Ensure your domain is authorized in Firebase
 - **Environment variables not loading**: Restart your development server
+
+
 
 
 

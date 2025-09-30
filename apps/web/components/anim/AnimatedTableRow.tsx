@@ -22,3 +22,6 @@ export default function AnimatedTableRow({ children, className = "", index = 0 }
   );
 }
 
+
+
+

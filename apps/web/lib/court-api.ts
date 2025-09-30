@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from "axios";
 import { z } from "zod";
 
-const COURT_API_BASE = process.env.COURT_API_BASE!;
-const PHOENIX_BASE   = process.env.PHOENIX_BASE!;
-const COURT_API_KEY  = process.env.COURT_API_KEY || "";
+const COURT_API_BASE = process.env.COURT_API_BASE || "https://court-api.kleopatra.io";
+const PHOENIX_BASE   = process.env.PHOENIX_BASE || "https://court-api.kleopatra.io";
+const COURT_API_KEY  = process.env.COURT_API_KEY || process.env.NEXT_PUBLIC_ECOURTS_API_KEY || "klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104";
 
 const PATH = {
   CNR:    process.env.COURT_API_PATH_CNR    || "/v17/cases/by-cnr",
@@ -19,7 +19,7 @@ const PHOENIX = {
 function makeClient(baseURL: string): AxiosInstance {
   const c = axios.create({
     baseURL,
-    timeout: 30_000,
+    timeout: 120_000,
     headers: COURT_API_KEY ? { Authorization: `Bearer ${COURT_API_KEY}` } : {},
   });
   c.interceptors.response.use(
@@ -91,7 +91,8 @@ export const Phoenix = {
 
 // CNR
 export async function getCaseByCnr(cnr: string) {
-  assert(/^\d{16}$/.test(cnr), "CNR must be 16 digits");
+  // Allow flexible CNR format (16 chars with letters, digits, hyphens)
+  assert(/^[A-Za-z0-9-]{16}$/.test(cnr), "CNR must be exactly 16 characters and contain only letters, digits, and hyphens");
   const { data } = await courtHttp.get(PATH.CNR + "?" + qs({ cnr }));
   return CnrResponse.parse(data);
 }

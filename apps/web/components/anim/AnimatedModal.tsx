@@ -48,3 +48,6 @@ export default function AnimatedModal({ isOpen, onClose, children, className = "
   );
 }
 
+
+
+

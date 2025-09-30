@@ -111,7 +111,7 @@ export interface SearchResult {
 
 export class ECourtsProvider {
   private config: ECourtsConfig
-  private timeout = 30000
+  private timeout = 120000
 
   // Official API endpoints
   private readonly OFFICIAL_ENDPOINTS = {
@@ -152,7 +152,7 @@ export class ECourtsProvider {
       provider: config?.provider || (process.env.ECOURTS_PROVIDER as ECourtsProviderType) || 'official',
       apiKey: config?.apiKey || process.env.ECOURTS_API_KEY || process.env.NEXT_PUBLIC_ECOURTS_API_KEY || 'klc_2cef7fc42178c58211cd8b8b1d23c3206c1e778f13ed566237803d8897a9b104',
       baseUrl: config?.baseUrl,
-      timeout: config?.timeout || 30000
+      timeout: config?.timeout || 120000
     }
   }
 
@@ -407,7 +407,7 @@ export class ECourtsProvider {
                 'Authorization': `Bearer ${this.config.apiKey}`,
                 'Content-Type': 'application/json'
               },
-              timeout: 30000 // 30 seconds timeout for browser environment
+              timeout: 120000 // 2 minutes timeout for browser environment
             })
 
             console.log(`✅ ${provider.name} API success:`, response.status)
@@ -501,7 +501,7 @@ export class ECourtsProvider {
                 'Authorization': `Bearer ${this.config.apiKey}`,
                 'Content-Type': 'application/json'
               },
-              timeout: 30000 // 30 seconds timeout for browser environment
+              timeout: 120000 // 2 minutes timeout for browser environment
             })
 
             console.log(`✅ Fallback ${fallbackCourtType} court endpoint success:`, altResponse.status)
@@ -1714,7 +1714,7 @@ export class ECourtsProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 120000
       })
 
       console.log(`✅ Party search success: ${response.status}`)
@@ -1814,7 +1814,7 @@ export class ECourtsProvider {
               'Authorization': `Bearer ${this.config.apiKey}`,
               'Content-Type': 'application/json'
             },
-            timeout: 30000
+            timeout: 120000
           })
 
           console.log(`✅ ${provider.name} advocate search success: ${response.status}`)
@@ -1935,7 +1935,7 @@ export class ECourtsProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 120000
       })
 
       console.log(`✅ Party search fallback response status: ${response.status}`)
@@ -2049,7 +2049,7 @@ export class ECourtsProvider {
               'Authorization': `Bearer ${this.config.apiKey}`,
               'Content-Type': 'application/json'
             },
-            timeout: 30000
+            timeout: 120000
           })
 
           console.log(`✅ ${provider.name} advocate number search success: ${response.status}`)
@@ -2197,7 +2197,7 @@ export class ECourtsProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 120000
       })
 
       console.log(`✅ Filing search success: ${response.status}`)
@@ -2281,7 +2281,7 @@ export class ECourtsProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 120000
       })
 
       console.log(`✅ Case number search success: ${response.status}`)

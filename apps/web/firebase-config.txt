@@ -1,7 +1,7 @@
 # Firebase Configuration for LNN Legal App
 # Copy this content to apps/web/.env.local
 
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY
+NEXT_PUBLIC_FIREBASE_API_KEY=your-actual-api-key-here
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=lnn-legal-app.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=lnn-legal-app
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=lnn-legal-app.firebasestorage.app

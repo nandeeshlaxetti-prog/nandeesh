@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase/firestore'
 
 // Firebase configuration - using your actual values
 const firebaseConfig = {
-  apiKey: "AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY",
   authDomain: "lnn-legal-app.firebaseapp.com",
   projectId: "lnn-legal-app",
   storageBucket: "lnn-legal-app.firebasestorage.app",
