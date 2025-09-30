@@ -13,9 +13,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"pnpm --filter web dev\" \"pnpm --filter desktop dev\"",
+    "dev": "concurrently \"pnpm --filter nandeesh-web dev\" \"pnpm --filter desktop dev\"",
     "build": "pnpm run --recursive build",
-    "build:ui": "pnpm --filter web build",
+    "build:ui": "pnpm --filter nandeesh-web build",
     "build:desktop": "pnpm --filter desktop build",
     "migrate": "pnpm --filter data migrate",
     "seed": "pnpm --filter data seed",
@@ -23,9 +23,9 @@
     "type-check": "pnpm run --recursive type-check",
     "lint": "pnpm run --recursive lint",
     "test": "pnpm run --recursive test",
-    "dev:web": "pnpm --filter web dev",
+    "dev:web": "pnpm --filter nandeesh-web dev",
     "dev:desktop": "pnpm --filter desktop dev",
-    "build:web": "pnpm --filter web build",
+    "build:web": "pnpm --filter nandeesh-web build",
     "build:core": "pnpm --filter core build",
     "build:data": "pnpm --filter data build",
     "build:jobs": "pnpm --filter jobs build",

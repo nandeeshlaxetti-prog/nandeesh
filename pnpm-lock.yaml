@@ -83,7 +83,7 @@ importers:
         specifier: ^5.3.3
         version: 5.9.2
 
-  apps/web:
+  apps/nandeesh-web:
     dependencies:
       '@heroicons/react':
         specifier: ^2.2.0
@@ -96,7 +96,7 @@ importers:
         version: 3.13.12(react-dom@18.3.1)(react@18.3.1)
       autoprefixer:
         specifier: ^10.4.0
-        version: 10.4.21(postcss@8.4.31)
+        version: 10.4.21(postcss@8.5.6)
       axios:
         specifier: ^1.12.0
         version: 1.12.0
@@ -123,7 +123,7 @@ importers:
         version: 14.0.0(react-dom@18.3.1)(react@18.3.1)
       postcss:
         specifier: ^8.4.0
-        version: 8.4.31
+        version: 8.5.6
       react:
         specifier: ^18
         version: 18.3.1
@@ -2248,7 +2248,7 @@ packages:
     engines: {node: '>= 4.0.0'}
     dev: true
 
-  /autoprefixer@10.4.21(postcss@8.4.31):
+  /autoprefixer@10.4.21(postcss@8.5.6):
     resolution: {integrity: sha512-O+A6LWV5LDHSJD3LjHYoNi4VLsj/Whi7k6zG12xTYaU4cQ8oxQGckXNX8cRHK5yOZ/ppVHe0ZBXGzSV9jXdVbQ==}
     engines: {node: ^10 || ^12 || >=14}
     hasBin: true
@@ -2260,7 +2260,7 @@ packages:
       fraction.js: 4.3.7
       normalize-range: 0.1.2
       picocolors: 1.1.1
-      postcss: 8.4.31
+      postcss: 8.5.6
       postcss-value-parser: 4.2.0
     dev: false
 

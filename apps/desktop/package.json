@@ -8,10 +8,10 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:main": "tsc -p tsconfig.main.json && electron dist/main.js",
-    "dev:renderer": "cd ../web && pnpm dev",
+    "dev:renderer": "cd ../nandeesh-web && pnpm dev",
     "build": "pnpm build:main && pnpm build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
-    "build:renderer": "cd ../web && pnpm build",
+    "build:renderer": "cd ../nandeesh-web && pnpm build",
     "start": "electron dist/main.js",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
@@ -43,12 +43,12 @@
     },
     "files": [
       "dist/**/*",
-      "../web/out/**/*",
+      "../nandeesh-web/out/**/*",
       "node_modules/**/*"
     ],
     "extraResources": [
       {
-        "from": "../web/out",
+        "from": "../nandeesh-web/out",
         "to": "web/out",
         "filter": ["**/*"]
       }

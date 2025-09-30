@@ -51,10 +51,10 @@ echo ""
 
 # Step 3: Check environment variables
 echo "🔧 Checking environment configuration..."
-if [ ! -f "apps/web/.env.local" ]; then
+if [ ! -f "apps/nandeesh-web/.env.local" ]; then
     echo "⚠️  No .env.local file found. Creating from example..."
-    cp production.env.example apps/web/.env.local
-    echo "📝 Please update apps/web/.env.local with your actual values"
+    cp production.env.example apps/nandeesh-web/.env.local
+    echo "📝 Please update apps/nandeesh-web/.env.local with your actual values"
     echo "   Required: DATABASE_URL, NEXTAUTH_SECRET, JWT_SECRET, ENCRYPTION_KEY"
     echo ""
 fi
@@ -62,7 +62,7 @@ fi
 # Step 4: Deploy to Vercel (if vercel CLI is available)
 if command -v vercel &> /dev/null; then
     echo "🚀 Deploying to Vercel..."
-    cd apps/web
+    cd apps/nandeesh-web
     vercel --prod
     if [ $? -eq 0 ]; then
         echo "✅ Successfully deployed to Vercel!"
@@ -98,6 +98,7 @@ echo "   - Firebase features: $0/month"
 echo "   - Total: $0/month"
 echo ""
 echo "📚 For detailed setup instructions, see DEPLOYMENT_GUIDE.md"
+
 
 
 

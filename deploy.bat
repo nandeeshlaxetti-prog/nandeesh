@@ -57,10 +57,10 @@ echo.
 
 REM Step 3: Check environment variables
 echo 🔧 Checking environment configuration...
-if not exist "apps\web\.env.local" (
+if not exist "apps\nandeesh-web\.env.local" (
     echo ⚠️  No .env.local file found. Creating from example...
-    copy production.env.example apps\web\.env.local
-    echo 📝 Please update apps\web\.env.local with your actual values
+    copy production.env.example apps\nandeesh-web\.env.local
+    echo 📝 Please update apps\nandeesh-web\.env.local with your actual values
     echo    Required: DATABASE_URL, NEXTAUTH_SECRET, JWT_SECRET, ENCRYPTION_KEY
     echo.
 )
@@ -69,7 +69,7 @@ REM Step 4: Deploy to Vercel (if vercel CLI is available)
 where vercel >nul 2>nul
 if %errorlevel% equ 0 (
     echo 🚀 Deploying to Vercel...
-    cd apps\web
+    cd apps\nandeesh-web
     vercel --prod
     if %errorlevel% equ 0 (
         echo ✅ Successfully deployed to Vercel!
@@ -106,6 +106,7 @@ echo    - Total: $0/month
 echo.
 echo 📚 For detailed setup instructions, see DEPLOYMENT_GUIDE.md
 pause
+
 
 
 
