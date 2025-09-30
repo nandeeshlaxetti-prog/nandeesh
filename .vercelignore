@@ -1,39 +1,38 @@
-# Ignore problematic packages that cause build issues
-packages/data/src/automation-triggers-service.ts
-packages/data/src/audit-logging-service.ts
-packages/data/src/audit-middleware.ts
-packages/data/src/auth.ts
-packages/data/src/automation-rules-engine.ts
-packages/data/src/automation-service.ts
-packages/data/src/test-pending-tasks.ts
-packages/data/src/repositories/worklog.js
+# Dependencies
+node_modules
+.pnpm-store
 
-# Ignore desktop app
-apps/desktop/
+# Build outputs
+dist
+.next
+out
 
-# Ignore test files
-**/*.test.ts
-**/*.test.js
-**/test-*.js
-**/test-*.ts
+# Desktop app (not needed for web deployment)
+apps/desktop
 
-# Ignore development files
+# Test files
+test-results
+tests
+
+# Development files
 *.log
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Ignore build artifacts
-.next/
-node_modules/
-dist/
-build/
+# IDE files
+.vscode
+.idea
 
-# Ignore git files
-.git/
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
 .gitignore
 
-# Ignore documentation
+# Documentation (optional - remove if you want to include)
 *.md
-!README.md
+DOCUMENTATION.md
