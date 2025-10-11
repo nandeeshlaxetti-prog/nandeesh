@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd apps/nandeesh-web && pnpm build",
+  "buildCommand": "pnpm install && cd apps/nandeesh-web && pnpm build",
   "outputDirectory": "apps/nandeesh-web/.next",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": "nextjs",
