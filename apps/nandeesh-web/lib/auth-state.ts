@@ -68,7 +68,14 @@ export const useAuth = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user
-      })
+      }),
+      skipHydration: false,
+      onRehydrateStorage: () => (state) => {
+        // Set loading to false after hydration
+        if (state) {
+          state.isLoading = false
+        }
+      }
     }
   )
 )
