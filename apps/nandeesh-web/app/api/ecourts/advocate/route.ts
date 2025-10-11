@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
     const ecourtsProvider = new ECourtsProvider(config)
 
-    let result: any = null
+    let results: any[] = []
 
     if (searchType === 'number' && advocateNumber?.trim()) {
       console.log(`🔍 Advocate number search for: ${advocateNumber}`)
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         courtId: complex
       })
       if (advocateNumberResult.success && advocateNumberResult.data && advocateNumberResult.data.length > 0) {
-        result = advocateNumberResult.data[0] as any
+        results = advocateNumberResult.data
       } else {
         return NextResponse.json({
           success: false,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         courtId: complex
       })
       if (advocateNameResult.success && advocateNameResult.data && advocateNameResult.data.length > 0) {
-        result = advocateNameResult.data[0] as any
+        results = advocateNameResult.data
       } else {
         return NextResponse.json({
           success: false,
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (!result) {
+    if (!results || results.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'NO_CASES_FOUND',
@@ -76,41 +76,42 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Map the result to our case format
-    const mappedCase = {
-      id: Date.now().toString(),
+    // Map all results to our case format
+    const mappedCases = results.map((result: any, index: number) => ({
+      id: `${Date.now()}-${index}`,
       cnrNumber: result.cnr || '',
-      caseNumber: result.details?.registrationNumber || result.details?.filingNumber || '',
-      filingNumber: result.details?.filingNumber || '',
+      caseNumber: result.caseNumber || result.details?.registrationNumber || result.details?.filingNumber || '',
+      filingNumber: result.filingNumber || result.details?.filingNumber || '',
       title: result.title || '',
-      petitionerName: result.parties?.petitioners?.[0] || '',
-      respondentName: result.parties?.respondents?.[0] || '',
-      court: result.status?.courtNumberAndJudge || '',
-      courtLocation: result.status?.courtNumberAndJudge || '',
-      hallNumber: '',
-      caseType: result.details?.type || '',
-      caseStatus: result.status?.caseStage || '',
-      filingDate: result.details?.filingDate || '',
-      lastHearingDate: result.status?.nextHearingDate || '',
-      nextHearingDate: result.status?.nextHearingDate || '',
+      petitionerName: result.parties?.find((p: any) => p.type === 'PLAINTIFF')?.name || result.parties?.petitioners?.[0] || '',
+      respondentName: result.parties?.find((p: any) => p.type === 'DEFENDANT')?.name || result.parties?.respondents?.[0] || '',
+      court: result.court || result.status?.courtNumberAndJudge || '',
+      courtLocation: result.courtLocation || result.location || '',
+      hallNumber: result.hallNumber || '',
+      caseType: result.caseType || result.details?.type || result.type || '',
+      caseStatus: result.caseStatus || result.status?.caseStage || result.status || '',
+      filingDate: result.filingDate || result.details?.filingDate || '',
+      lastHearingDate: result.lastHearingDate || result.status?.firstHearingDate || '',
+      nextHearingDate: result.nextHearingDate || result.status?.nextHearingDate || '',
       priority: 'MEDIUM' as const,
-      stage: result.status?.caseStage || '',
-      subjectMatter: '',
-      reliefSought: '',
-      caseValue: '',
-      caseDescription: result.title || '',
+      stage: result.stage || result.status?.caseStage || '',
+      subjectMatter: result.subjectMatter || result.caseDetails?.subjectMatter || '',
+      reliefSought: result.reliefSought || result.caseDetails?.reliefSought || '',
+      caseValue: result.caseValue || result.caseDetails?.caseValue || '',
+      caseDescription: result.title || result.caseDetails?.caseDescription || '',
       caseNotes: '',
-      tags: [],
-      documents: [],
-      hearings: [],
+      tags: result.tags || [],
+      documents: result.documents || [],
+      hearings: result.hearingHistory || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    }
+    }))
 
     return NextResponse.json({
       success: true,
-      data: mappedCase,
-      message: `Advocate ${searchType} search completed successfully`
+      data: mappedCases,
+      total: mappedCases.length,
+      message: `Advocate ${searchType} search completed successfully - found ${mappedCases.length} cases`
     })
 
   } catch (error) {
@@ -140,17 +141,17 @@ export async function POST(request: NextRequest) {
     }
     const ecourtsProvider = new ECourtsProvider(config)
 
-    let result: any = null
+    let results: any[] = []
 
     if (searchType === 'number' && advocateNumber?.trim()) {
       console.log(`🔍 Advocate number search for: ${advocateNumber}`)
       const advocateNumberResult = await ecourtsProvider.searchByAdvocateNumber(advocateNumber, courtType || 'district', {
         stateCode: state || 'KAR',
         year: year || '2021',
-        courtId: complex || 'bangalore'
+        courtId: complex || 'cb0236f7'
       })
       if (advocateNumberResult.success && advocateNumberResult.data && advocateNumberResult.data.length > 0) {
-        result = advocateNumberResult.data[0] as any
+        results = advocateNumberResult.data
       } else {
         return NextResponse.json({
           success: false,
@@ -162,10 +163,10 @@ export async function POST(request: NextRequest) {
       console.log(`🔍 Advocate name search for: ${advocateName}`)
       const advocateNameResult = await ecourtsProvider.searchByAdvocate(advocateName, courtType || 'district', {
         stage: 'BOTH',
-        courtId: complex || 'bangalore'
+        courtId: complex || 'cb0236f7'
       })
       if (advocateNameResult.success && advocateNameResult.data && advocateNameResult.data.length > 0) {
-        result = advocateNameResult.data[0] as any
+        results = advocateNameResult.data
       } else {
         return NextResponse.json({
           success: false,
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (!result) {
+    if (!results || results.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'NO_CASES_FOUND',
@@ -189,41 +190,42 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Map the result to our case format
-    const mappedCase = {
-      id: Date.now().toString(),
+    // Map all results to our case format
+    const mappedCases = results.map((result: any, index: number) => ({
+      id: `${Date.now()}-${index}`,
       cnrNumber: result.cnr || '',
-      caseNumber: result.details?.registrationNumber || result.details?.filingNumber || '',
-      filingNumber: result.details?.filingNumber || '',
+      caseNumber: result.caseNumber || result.details?.registrationNumber || result.details?.filingNumber || '',
+      filingNumber: result.filingNumber || result.details?.filingNumber || '',
       title: result.title || '',
-      petitionerName: result.parties?.petitioners?.[0] || '',
-      respondentName: result.parties?.respondents?.[0] || '',
-      court: result.status?.courtNumberAndJudge || '',
-      courtLocation: result.status?.courtNumberAndJudge || '',
-      hallNumber: '',
-      caseType: result.details?.type || '',
-      caseStatus: result.status?.caseStage || '',
-      filingDate: result.details?.filingDate || '',
-      lastHearingDate: result.status?.nextHearingDate || '',
-      nextHearingDate: result.status?.nextHearingDate || '',
+      petitionerName: result.parties?.find((p: any) => p.type === 'PLAINTIFF')?.name || result.parties?.petitioners?.[0] || '',
+      respondentName: result.parties?.find((p: any) => p.type === 'DEFENDANT')?.name || result.parties?.respondents?.[0] || '',
+      court: result.court || result.status?.courtNumberAndJudge || '',
+      courtLocation: result.courtLocation || result.location || '',
+      hallNumber: result.hallNumber || '',
+      caseType: result.caseType || result.details?.type || result.type || '',
+      caseStatus: result.caseStatus || result.status?.caseStage || result.status || '',
+      filingDate: result.filingDate || result.details?.filingDate || '',
+      lastHearingDate: result.lastHearingDate || result.status?.firstHearingDate || '',
+      nextHearingDate: result.nextHearingDate || result.status?.nextHearingDate || '',
       priority: 'MEDIUM' as const,
-      stage: result.status?.caseStage || '',
-      subjectMatter: '',
-      reliefSought: '',
-      caseValue: '',
-      caseDescription: result.title || '',
+      stage: result.stage || result.status?.caseStage || '',
+      subjectMatter: result.subjectMatter || result.caseDetails?.subjectMatter || '',
+      reliefSought: result.reliefSought || result.caseDetails?.reliefSought || '',
+      caseValue: result.caseValue || result.caseDetails?.caseValue || '',
+      caseDescription: result.title || result.caseDetails?.caseDescription || '',
       caseNotes: '',
-      tags: [],
-      documents: [],
-      hearings: [],
+      tags: result.tags || [],
+      documents: result.documents || [],
+      hearings: result.hearingHistory || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    }
+    }))
 
     return NextResponse.json({
       success: true,
-      data: mappedCase,
-      message: `Advocate ${searchType} search completed successfully`
+      data: mappedCases,
+      total: mappedCases.length,
+      message: `Advocate ${searchType} search completed successfully - found ${mappedCases.length} cases`
     })
 
   } catch (error) {

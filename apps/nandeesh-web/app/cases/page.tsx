@@ -75,7 +75,6 @@ const courtTypeOptions = [
 
 const districtCourtFunctions = [
   { value: 'cnr', label: 'CNR Lookup', icon: DocumentTextIcon, description: 'Search by Case Number Reference' },
-  { value: 'party', label: 'Party Search', icon: UserIcon, description: 'Search by party names with location filters' },
   { value: 'advocate', label: 'Advocate Search', icon: ScaleIcon, description: 'Search by advocate names' },
   { value: 'advocateNumber', label: 'Advocate Number', icon: AcademicCapIcon, description: 'Search by advocate registration number' },
   { value: 'filing', label: 'Filing Search', icon: ClipboardDocumentListIcon, description: 'Search by filing numbers' }
@@ -125,10 +124,18 @@ interface StaticCourtData {
   courts: CourtData[]
 }
 
-// Fallback sample data for dropdowns
+// Fallback sample data for dropdowns with state codes
 const fallbackStates = [
-  'Karnataka', 'Maharashtra', 'Tamil Nadu', 'Kerala', 'Andhra Pradesh', 
-  'Telangana', 'Gujarat', 'Rajasthan', 'Uttar Pradesh', 'Delhi'
+  { name: 'Karnataka', code: 'KAR' },
+  { name: 'Maharashtra', code: 'MAH' },
+  { name: 'Tamil Nadu', code: 'TN' },
+  { name: 'Kerala', code: 'KER' },
+  { name: 'Andhra Pradesh', code: 'AP' },
+  { name: 'Telangana', code: 'TEL' },
+  { name: 'Gujarat', code: 'GUJ' },
+  { name: 'Rajasthan', code: 'RAJ' },
+  { name: 'Uttar Pradesh', code: 'UP' },
+  { name: 'Delhi', code: 'DEL' }
 ]
 
 const fallbackDistricts = {
@@ -370,17 +377,49 @@ export default function CasesPage() {
     }
   ]
 
-  // Load cases from cloud storage
+  // Load cases from database
   useEffect(() => {
     const loadCases = async () => {
       try {
+        // First, try to load from localStorage for immediate display
+        const localCases = localStorage.getItem('legal-cases')
+        if (localCases) {
+          try {
+            const parsedCases = JSON.parse(localCases)
+            setCases(parsedCases)
+            console.log(`📦 Loaded ${parsedCases.length} cases from localStorage`)
+          } catch (e) {
+            console.error('Failed to parse localStorage cases:', e)
+          }
+        }
+
         // Check if migration is needed
         if (migrationService.needsMigration()) {
           setShowMigrationModal(true)
           return
         }
 
-        // Load cases from cloud storage
+        // Then load cases from online storage API
+        console.log('📥 Loading cases from online storage...')
+        const response = await fetch('/api/cases/storage')
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            console.log(`✅ Loaded ${result.total} cases from online storage`)
+            if (result.data.length > 0) {
+              setCases(result.data)
+            }
+            setCloudSyncStatus({ isOnline: true, lastSync: new Date(), pendingChanges: 0, syncErrors: [] })
+            return
+          } else {
+            console.log('⚠️ Online storage is empty, using localStorage data')
+            return
+          }
+        }
+        
+        console.log('⚠️ Database unavailable, falling back to cloud storage')
+        // Fallback to cloud storage if database API fails
         const cloudCases = await cloudStorageService.getAllCases()
         
         // Convert CloudCase to Case format for compatibility
@@ -530,6 +569,48 @@ export default function CasesPage() {
   const [isLoadingCNR, setIsLoadingCNR] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [searchSuccess, setSearchSuccess] = useState<string | null>(null)
+  
+  // Auto-save cases to online storage and localStorage whenever they change
+  useEffect(() => {
+    const saveCases = async () => {
+      if (cases.length === 0) return
+      
+      // Save to localStorage as backup (instant)
+      localStorage.setItem('legal-cases', JSON.stringify(cases))
+      console.log(`💾 Backed up ${cases.length} cases to localStorage`)
+      
+      // Save to online storage (for multi-user access)
+      try {
+        const response = await fetch('/api/cases/storage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(cases)
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log(`☁️ Synced ${result.total} cases to online storage`)
+          setCloudSyncStatus({ 
+            isOnline: true, 
+            lastSync: new Date(), 
+            pendingChanges: 0, 
+            syncErrors: [] 
+          })
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to sync to online storage:', error)
+        setCloudSyncStatus(prev => ({ 
+          ...prev, 
+          isOnline: false, 
+          syncErrors: [...prev.syncErrors, error instanceof Error ? error.message : 'Sync failed'] 
+        }))
+      }
+    }
+    
+    saveCases()
+  }, [cases])
   
   // Basic search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -1254,6 +1335,8 @@ export default function CasesPage() {
               throw new Error('Advocate Name is required')
             }
             searchParams.append('advocateName', advancedSearchForm.advocateName)
+            if (advancedSearchForm.complex) searchParams.append('complex', advancedSearchForm.complex)
+            if (advancedSearchForm.caseStage) searchParams.append('caseStage', advancedSearchForm.caseStage)
             break
             
           case 'advocateNumber':
@@ -1261,6 +1344,9 @@ export default function CasesPage() {
               throw new Error('Advocate Number is required')
             }
             searchParams.append('advocateNumber', advancedSearchForm.advocateNumber)
+            if (advancedSearchForm.state) searchParams.append('state', advancedSearchForm.state)
+            if (advancedSearchForm.year) searchParams.append('year', advancedSearchForm.year)
+            if (advancedSearchForm.complex) searchParams.append('complex', advancedSearchForm.complex)
             break
             
           case 'filing':
@@ -1408,15 +1494,150 @@ export default function CasesPage() {
       const result = await response.json()
       
       if (result.success && result.data) {
-        // Add the found case to the list
-        const newCase = result.data
-        setCases(prevCases => [...prevCases, newCase])
+        // Handle both single case and multiple cases (for advocate number search)
+        const casesToAdd = Array.isArray(result.data) ? result.data : [result.data]
         
-        // Show success message with case details
-        setSearchSuccess(`✅ Case found and added successfully! 
-        Case: ${newCase.title}
-        CNR: ${newCase.cnrNumber}
-        Court: ${newCase.court}`)
+        // For advocate searches (name or number), enrich cases with full CNR data
+        const isAdvocateSearch = advancedSearchForm.districtCourtFunction === 'advocateNumber' || 
+                                 advancedSearchForm.districtCourtFunction === 'advocate'
+        
+        if (isAdvocateSearch && casesToAdd.length > 0) {
+          console.log(`🔍 Enriching ${casesToAdd.length} cases with full CNR data...`)
+          setSearchSuccess(`⏳ Fetching complete details for ${casesToAdd.length} cases...`)
+          
+          const enrichedCases = []
+          let successCount = 0
+          let failedCount = 0
+          
+          for (let i = 0; i < casesToAdd.length; i++) {
+            const caseData = casesToAdd[i]
+            const cnr = caseData.cnrNumber || caseData.cnr
+            
+            if (!cnr) {
+              console.log(`⚠️ Skipping case without CNR: ${caseData.title}`)
+              enrichedCases.push(caseData)
+              failedCount++
+              continue
+            }
+            
+            try {
+              console.log(`🔍 Fetching full details for CNR ${i + 1}/${casesToAdd.length}: ${cnr}`)
+              
+              // Fetch full case details using CNR
+              const cnrResponse = await fetch(`/api/ecourts/advanced-search?courtType=district&searchType=cnr&cnrNumber=${cnr}`)
+              
+              if (cnrResponse.ok) {
+                const cnrResult = await cnrResponse.json()
+                
+                if (cnrResult.success && cnrResult.data) {
+                  // Use the enriched data from CNR lookup
+                  enrichedCases.push(cnrResult.data)
+                  successCount++
+                  console.log(`✅ Enriched case ${i + 1}/${casesToAdd.length}: ${cnrResult.data.title}`)
+                } else {
+                  // Keep original data if CNR lookup fails
+                  enrichedCases.push(caseData)
+                  failedCount++
+                  console.log(`⚠️ CNR lookup failed for ${cnr}, using basic data`)
+                }
+              } else {
+                enrichedCases.push(caseData)
+                failedCount++
+              }
+              
+              // Update progress message
+              setSearchSuccess(`⏳ Processing ${i + 1}/${casesToAdd.length} cases...
+        Enriched: ${successCount}
+        Basic: ${failedCount}`)
+              
+            } catch (error) {
+              console.error(`❌ Failed to enrich case ${cnr}:`, error)
+              enrichedCases.push(caseData)
+              failedCount++
+            }
+          }
+          
+          console.log(`✅ Enrichment complete: ${successCount} enriched, ${failedCount} basic`)
+          
+          // Save enriched cases to database
+          console.log(`💾 Saving ${enrichedCases.length} enriched cases to database...`)
+          
+          try {
+            const saveResponse = await fetch('/api/cases/storage', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(enrichedCases)
+            })
+            
+            const saveResult = await saveResponse.json()
+            
+            if (saveResult.success) {
+              console.log(`✅ Saved ${saveResult.saved} cases to online storage`)
+              
+              // Reload cases from online storage
+              const fetchResponse = await fetch('/api/cases/storage')
+              const fetchResult = await fetchResponse.json()
+              
+              if (fetchResult.success && fetchResult.data) {
+                setCases(fetchResult.data)
+              }
+              
+              setSearchSuccess(`✅ Advocate search completed! 
+        Total Cases: ${casesToAdd.length}
+        Fully Enriched: ${successCount} cases
+        Basic Data: ${failedCount} cases
+        All users can now access these cases!`)
+            } else {
+              throw new Error(saveResult.message || 'Failed to save cases to database')
+            }
+          } catch (saveError) {
+            console.error('❌ Database save failed, using localStorage fallback:', saveError)
+            setCases(prevCases => [...prevCases, ...enrichedCases])
+            setSearchSuccess(`⚠️ Cases added locally (database unavailable)`)
+          }
+          
+        } else {
+          // For non-advocate searches, save directly without enrichment
+          console.log(`💾 Saving ${casesToAdd.length} cases to database...`)
+          
+          try {
+            const saveResponse = await fetch('/api/cases/storage', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(casesToAdd)
+            })
+            
+            const saveResult = await saveResponse.json()
+            
+            if (saveResult.success) {
+              console.log(`✅ Saved to online storage (${saveResult.total} total cases)`)
+              
+              // Reload cases from online storage
+              const fetchResponse = await fetch('/api/cases/storage')
+              const fetchResult = await fetchResponse.json()
+              
+              if (fetchResult.success && fetchResult.data) {
+                setCases(fetchResult.data)
+              }
+              
+              // Show success message
+              setSearchSuccess(`✅ Case saved to database! 
+        Case: ${casesToAdd[0].title}
+        CNR: ${casesToAdd[0].cnrNumber || casesToAdd[0].cnr}
+        Court: ${casesToAdd[0].court}`)
+            } else {
+              throw new Error(saveResult.message || 'Failed to save cases to database')
+            }
+          } catch (saveError) {
+            console.error('❌ Database save failed, using localStorage fallback:', saveError)
+            setCases(prevCases => [...prevCases, ...casesToAdd])
+            setSearchSuccess(`⚠️ Cases added locally (database unavailable)`)
+          }
+        }
         
         // Close modal after a short delay
         setTimeout(() => {
@@ -1460,13 +1681,14 @@ export default function CasesPage() {
       const errorMessage = error instanceof Error ? error.message : 'Search failed'
       
       // Provide more helpful error messages
-      if (errorMessage.includes('advocate') || errorMessage.includes('Advocate')) {
+      if (errorMessage.includes('advocate') || errorMessage.includes('Advocate') || errorMessage.includes('Not Found')) {
         setSearchError(`Advocate search failed: ${errorMessage}. 
         
 💡 Try these alternatives:
-• Search by Party Name instead
-• Use CNR Lookup if you have the case number
-• Check if the advocate name is spelled correctly`)
+• Use FULL NAME with middle initial (e.g., "Nandeesh R Laxetti" instead of "Nandeesh Laxetti")
+• Try different name variations (with/without middle name)
+• Use Advocate Number search if you know the registration number
+• Try a partial name (e.g., just "Laxetti" to find 35 cases)`)
       } else {
         setSearchError(errorMessage)
       }
@@ -2730,9 +2952,9 @@ export default function CasesPage() {
                           <option value="">
                             {isLoadingCourtData ? 'Loading states...' : 'Select State'}
                           </option>
-                          {(staticCourtData.states.length > 0 ? staticCourtData.states : fallbackStates.map(name => ({ id: name.toLowerCase(), name }))).map(state => (
-                            <option key={state.id || (state as any)} value={state.name || (state as any)}>
-                              {state.name || (state as any)}
+                          {(staticCourtData.states.length > 0 ? staticCourtData.states : fallbackStates.map(s => ({ id: s.code.toLowerCase(), name: s.name }))).map(state => (
+                            <option key={state.id} value={state.name}>
+                              {state.name}
                             </option>
                           ))}
                         </select>
@@ -2850,12 +3072,12 @@ export default function CasesPage() {
                         type="text"
                         value={advancedSearchForm.advocateName}
                         onChange={(e) => handleAdvancedSearchChange('advocateName', e.target.value)}
-                        placeholder="Enter advocate name (e.g., John Doe, Smith Kumar)"
+                        placeholder="Enter full advocate name (e.g., Nandeesh R Laxetti, John Kumar Smith)"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
                       <div className="mt-1 text-xs text-gray-500">
-                        💡 Test with Karnataka state code (KAR) and year 2021
+                        💡 Tip: Use full name with middle initial for better results (e.g., "Nandeesh R Laxetti" works better than "Nandeesh Laxetti")
                       </div>
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                         <div className="flex">
@@ -2913,9 +3135,9 @@ export default function CasesPage() {
                           required
                         >
                           <option value="">Select State</option>
-                          {fallbackStates.map((state: string) => (
-                            <option key={state} value={state}>
-                              {state}
+                          {fallbackStates.map((state) => (
+                            <option key={state.code} value={state.code}>
+                              {state.name} ({state.code})
                             </option>
                           ))}
                         </select>

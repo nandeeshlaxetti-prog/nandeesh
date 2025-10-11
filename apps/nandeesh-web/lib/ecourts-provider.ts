@@ -1790,11 +1790,9 @@ export class ECourtsProvider {
             // Use the correct Kleopatra advocate name search endpoint from documentation
             endpoint = `${provider.endpoint}${this.API_PATHS.KLEOPATRA.ADVOCATE_NAME}`
             requestBody = {
-              advocate: {
-                name: advocateName
-              },
+              name: advocateName,
               stage: options?.stage || 'BOTH',
-              districtId: options?.courtId || 'bangalore'
+              districtId: options?.courtId || 'cb0236f7'
             }
           } else if (provider.name === 'Phoenix') {
             // Phoenix advocate search
@@ -1823,7 +1821,17 @@ export class ECourtsProvider {
           if (response.data) {
             let mappedCases: any[] = []
             
-            if (Array.isArray(response.data)) {
+            // Handle Kleopatra advocate name response format (array of court objects with cases)
+            if (provider.name === 'Kleopatra' && Array.isArray(response.data)) {
+              mappedCases = []
+              response.data.forEach((courtData: any) => {
+                if (courtData.cases && Array.isArray(courtData.cases)) {
+                  courtData.cases.forEach((caseData: any) => {
+                    mappedCases.push(this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || ''))
+                  })
+                }
+              })
+            } else if (Array.isArray(response.data)) {
               mappedCases = response.data.map((caseData: any) => {
                 if (provider.name === 'ECourts_v17') {
                   return this.mapECourtsV17ResponseToCaseData(caseData, caseData.cnr || '')
@@ -2022,13 +2030,13 @@ export class ECourtsProvider {
             // Use the correct Kleopatra advocate number search endpoint from documentation
             endpoint = `${provider.endpoint}${this.API_PATHS.KLEOPATRA.ADVOCATE_NUMBER}`
             requestBody = {
-              search: {
-                State: options?.stateCode || 'KAR',
+              advocate: {
+                state: options?.stateCode || 'KAR',
                 number: advocateNumber,
                 year: options?.year || '2021'
               },
-              stage: 'BOTH',
-              districtId: options?.courtId || 'bangalore'
+              stage: 'PENDING',
+              districtId: options?.courtId || 'cb0236f7'
             }
           } else if (provider.name === 'Phoenix') {
             // Phoenix advocate search
@@ -2059,15 +2067,27 @@ export class ECourtsProvider {
             let mappedCases: any[] = []
             
             if (Array.isArray(response.data)) {
-              mappedCases = response.data.map((caseData: any) => {
-                if (provider.name === 'ECourts_v17') {
-                  return this.mapECourtsV17ResponseToCaseData(caseData, caseData.cnr || '')
-                } else if (provider.name === 'Phoenix') {
-                  return this.mapPhoenixResponseToCaseData(caseData, caseData.cnr || '')
-                } else {
-                  return this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
-                }
-              })
+              // Handle Kleopatra advocate number response format (array of court objects with cases)
+              if (provider.name === 'Kleopatra') {
+                mappedCases = []
+                response.data.forEach((courtData: any) => {
+                  if (courtData.cases && Array.isArray(courtData.cases)) {
+                    courtData.cases.forEach((caseData: any) => {
+                      mappedCases.push(this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || ''))
+                    })
+                  }
+                })
+              } else {
+                mappedCases = response.data.map((caseData: any) => {
+                  if (provider.name === 'ECourts_v17') {
+                    return this.mapECourtsV17ResponseToCaseData(caseData, caseData.cnr || '')
+                  } else if (provider.name === 'Phoenix') {
+                    return this.mapPhoenixResponseToCaseData(caseData, caseData.cnr || '')
+                  } else {
+                    return this.mapKleopatraResponseToCaseData(caseData, caseData.cnr || '')
+                  }
+                })
+              }
             } else if (response.data && response.data.cases) {
               // Handle nested case data structure
               const cases = Array.isArray(response.data.cases) ? response.data.cases : [response.data.cases]

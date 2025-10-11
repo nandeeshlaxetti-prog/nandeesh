@@ -84,25 +84,35 @@ export async function GET(request: NextRequest) {
               error: 'Advocate Name is required for advocate search'
             }, { status: 400 })
           }
-          console.log(`🔍 Advocate search for: ${advocateName}`)
+          console.log(`🔍 Advocate name search for: ${advocateName}`)
           const advocateResult = await ecourtsProvider.searchByAdvocate(advocateName, courtType as any, {
-            stage: 'BOTH',
-            courtId: complex, // Use complex as courtId for district court
-            stateCode: 'KAR', // Karnataka state code
-            year: '2021' // Test year
+            stage: caseStage === 'both' ? 'BOTH' : caseStage === 'pending' ? 'PENDING' : 'DISPOSED',
+            courtId: complex || 'cb0236f7'
           })
           
-          console.log(`📊 Advocate search result:`, advocateResult)
+          console.log(`📊 Advocate name search result:`, advocateResult)
           
           if (advocateResult.success && advocateResult.data && advocateResult.data.length > 0) {
-            result = advocateResult.data[0] as any
-            console.log(`✅ Advocate search found ${advocateResult.data.length} cases`)
+            // Return all cases for advocate name search (like advocate number)
+            console.log(`✅ Advocate name search completed: found ${advocateResult.data.length} cases`)
+            return NextResponse.json({
+              success: true,
+              data: advocateResult.data,
+              total: advocateResult.data.length,
+              searchType: 'advocate',
+              courtType,
+              searchParams: {
+                advocateName,
+                stage: caseStage,
+                complex
+              }
+            })
           } else {
-            console.log(`❌ Advocate search failed:`, advocateResult.error, advocateResult.message)
+            console.log(`❌ Advocate name search failed:`, advocateResult.error, advocateResult.message)
             return NextResponse.json({
               success: false,
               error: advocateResult.error || 'NO_CASES_FOUND',
-              message: advocateResult.message || 'No cases found for the given advocate name. Try searching by party name instead.'
+              message: advocateResult.message || 'No cases found for the given advocate name.'
             }, { status: 404 })
           }
           break
@@ -121,7 +131,21 @@ export async function GET(request: NextRequest) {
             courtId: complex // Use complex as courtId for district court
           })
           if (advocateNumberResult.success && advocateNumberResult.data && advocateNumberResult.data.length > 0) {
-            result = advocateNumberResult.data[0] as any
+            // Return all cases for advocate number search
+            console.log(`✅ Advocate number search completed: found ${advocateNumberResult.data.length} cases`)
+            return NextResponse.json({
+              success: true,
+              data: advocateNumberResult.data,
+              total: advocateNumberResult.data.length,
+              searchType: 'advocateNumber',
+              courtType,
+              searchParams: {
+                advocateNumber,
+                state,
+                year,
+                complex
+              }
+            })
           } else {
             return NextResponse.json({
               success: false,
