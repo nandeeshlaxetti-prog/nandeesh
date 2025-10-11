@@ -8,12 +8,20 @@ const CASES_KEY = 'legal-cases'
 let casesCache: any[] = []
 let isKVAvailable = false
 
-// Dynamically import Vercel KV only when needed
+// Dynamically import Vercel KV only when needed and available
 async function getKV() {
+  // Only try to import if we're in Vercel environment
+  if (!process.env.KV_REST_API_URL) {
+    return null
+  }
+  
   try {
-    const { kv } = await import('@vercel/kv')
+    // Use require instead of import for optional dependency
+    // This prevents webpack from trying to bundle it at build time
+    const { kv } = require('@vercel/kv')
     return kv
-  } catch {
+  } catch (error) {
+    console.log('Vercel KV not available, using memory cache')
     return null
   }
 }
@@ -36,35 +44,37 @@ async function checkKVAvailability() {
 function getStorage() {
   return {
     async get(): Promise<any[]> {
-      try {
-        // Try Vercel KV first
-        if (process.env.KV_REST_API_URL) {
+      // Only try Vercel KV if environment variable is set
+      if (process.env.KV_REST_API_URL) {
+        try {
           const kv = await getKV()
           if (kv) {
             const data = await kv.get<any[]>(CASES_KEY)
+            console.log(`📦 Loaded from Vercel KV: ${data?.length || 0} cases`)
             return data || []
           }
+        } catch (error) {
+          console.log('⚠️  KV unavailable, using memory cache:', error)
         }
-      } catch (error) {
-        console.log('KV unavailable, using memory cache')
       }
       
       // Fallback to in-memory cache
+      console.log(`📦 Using memory cache: ${casesCache.length} cases`)
       return casesCache
     },
     async set(data: any[]): Promise<boolean> {
-      try {
-        // Try Vercel KV first
-        if (process.env.KV_REST_API_URL) {
+      // Only try Vercel KV if environment variable is set
+      if (process.env.KV_REST_API_URL) {
+        try {
           const kv = await getKV()
           if (kv) {
             await kv.set(CASES_KEY, data)
             console.log(`✅ Saved to Vercel KV: ${data.length} cases`)
             return true
           }
+        } catch (error) {
+          console.log('⚠️  KV unavailable, using memory cache:', error)
         }
-      } catch (error) {
-        console.log('KV unavailable, using memory cache')
       }
       
       // Fallback to in-memory cache
