@@ -15,6 +15,11 @@ export default function Navigation() {
   const { user, logout, isAuthenticated } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
 
+  // Don't show navigation on login page or root page
+  if (pathname === '/login' || pathname === '/') {
+    return null
+  }
+
   const navigationItems = [
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
     { name: 'Cases', href: '/cases', icon: '📁' },
