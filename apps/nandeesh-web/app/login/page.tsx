@@ -68,9 +68,19 @@ export default function LoginPage() {
       setAuthenticated(true, profile)
       router.push('/dashboard')
     } catch (error) {
-      setErrors({ 
-        general: error instanceof Error ? error.message : 'Authentication failed. Please try again.' 
-      })
+      console.error('Login error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed. Please try again.'
+      
+      // If Firebase is not configured, show a helpful message
+      if (errorMessage.includes('Firebase not initialized')) {
+        setErrors({ 
+          general: 'Authentication service not configured. Please contact support.' 
+        })
+      } else {
+        setErrors({ 
+          general: errorMessage 
+        })
+      }
     } finally {
       setIsLoading(false)
     }

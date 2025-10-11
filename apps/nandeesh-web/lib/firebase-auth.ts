@@ -95,7 +95,9 @@ export class FirebaseAuthService {
   // Listen to auth state changes
   static onAuthStateChanged(callback: (user: User | null) => void) {
     if (!auth) {
-      // Return a no-op unsubscribe function
+      console.warn('Firebase not configured - using localStorage fallback')
+      // Return a no-op unsubscribe function and immediately call callback with null
+      setTimeout(() => callback(null), 100)
       return () => {}
     }
     return onAuthStateChanged(auth, callback)

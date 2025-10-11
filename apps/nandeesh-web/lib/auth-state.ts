@@ -95,6 +95,7 @@ export const useFirebaseAuth = () => {
           setAuthenticated(false)
         }
       } else {
+        // Firebase not configured or user logged out
         setAuthenticated(false)
       }
     })
