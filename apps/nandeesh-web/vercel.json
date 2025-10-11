@@ -1,21 +1,11 @@
 {
-  "version": 2,
   "buildCommand": "pnpm build",
   "outputDirectory": ".next",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": "nextjs",
-  "rootDirectory": "apps/nandeesh-web",
   "env": {
     "NODE_ENV": "production",
-    "APP_MODE": "web",
-    "QUEUE_BACKEND": "local",
-    "LOG_LEVEL": "info"
-  },
-  "regions": ["iad1"],
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
-    }
+    "APP_MODE": "web"
   },
   "headers": [
     {
