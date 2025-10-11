@@ -1,19 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { kv } from '@vercel/kv'
 
 export const dynamic = 'force-dynamic'
 
+const CASES_KEY = 'legal-cases'
+
 // Use Vercel KV if available, otherwise use in-memory storage
 let casesCache: any[] = []
+let isKVAvailable = false
+
+// Check if Vercel KV is available
+async function checkKVAvailability() {
+  try {
+    await kv.ping()
+    isKVAvailable = true
+    return true
+  } catch {
+    isKVAvailable = false
+    return false
+  }
+}
 
 // Helper to get storage
 function getStorage() {
-  // In Vercel, this would use Vercel KV
-  // For now, use in-memory storage that works in serverless
   return {
-    async get() {
+    async get(): Promise<any[]> {
+      try {
+        // Try Vercel KV first
+        if (process.env.KV_REST_API_URL) {
+          const data = await kv.get<any[]>(CASES_KEY)
+          return data || []
+        }
+      } catch (error) {
+        console.log('KV unavailable, using memory cache')
+      }
+      
+      // Fallback to in-memory cache
       return casesCache
     },
-    async set(data: any[]) {
+    async set(data: any[]): Promise<boolean> {
+      try {
+        // Try Vercel KV first
+        if (process.env.KV_REST_API_URL) {
+          await kv.set(CASES_KEY, data)
+          console.log(`✅ Saved to Vercel KV: ${data.length} cases`)
+          return true
+        }
+      } catch (error) {
+        console.log('KV unavailable, using memory cache')
+      }
+      
+      // Fallback to in-memory cache
       casesCache = data
       return true
     }
