@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kv } from '@vercel/kv'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,9 +8,21 @@ const CASES_KEY = 'legal-cases'
 let casesCache: any[] = []
 let isKVAvailable = false
 
+// Dynamically import Vercel KV only when needed
+async function getKV() {
+  try {
+    const { kv } = await import('@vercel/kv')
+    return kv
+  } catch {
+    return null
+  }
+}
+
 // Check if Vercel KV is available
 async function checkKVAvailability() {
   try {
+    const kv = await getKV()
+    if (!kv) return false
     await kv.ping()
     isKVAvailable = true
     return true
@@ -28,8 +39,11 @@ function getStorage() {
       try {
         // Try Vercel KV first
         if (process.env.KV_REST_API_URL) {
-          const data = await kv.get<any[]>(CASES_KEY)
-          return data || []
+          const kv = await getKV()
+          if (kv) {
+            const data = await kv.get<any[]>(CASES_KEY)
+            return data || []
+          }
         }
       } catch (error) {
         console.log('KV unavailable, using memory cache')
@@ -42,9 +56,12 @@ function getStorage() {
       try {
         // Try Vercel KV first
         if (process.env.KV_REST_API_URL) {
-          await kv.set(CASES_KEY, data)
-          console.log(`✅ Saved to Vercel KV: ${data.length} cases`)
-          return true
+          const kv = await getKV()
+          if (kv) {
+            await kv.set(CASES_KEY, data)
+            console.log(`✅ Saved to Vercel KV: ${data.length} cases`)
+            return true
+          }
         }
       } catch (error) {
         console.log('KV unavailable, using memory cache')
@@ -52,6 +69,7 @@ function getStorage() {
       
       // Fallback to in-memory cache
       casesCache = data
+      console.log(`✅ Saved to memory cache: ${data.length} cases`)
       return true
     }
   }
@@ -67,7 +85,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: cases,
       total: cases.length,
-      storage: 'vercel-kv'
+      storage: process.env.KV_REST_API_URL ? 'vercel-kv' : 'memory-cache'
     })
   } catch (error) {
     console.error('❌ Error reading cases:', error)
@@ -125,7 +143,7 @@ export async function POST(request: NextRequest) {
       message: `Saved ${addedCount} cases to online storage`,
       saved: addedCount,
       total: allCases.length,
-      storage: 'vercel-kv'
+      storage: process.env.KV_REST_API_URL ? 'vercel-kv' : 'memory-cache'
     })
   } catch (error) {
     console.error('❌ Error saving cases:', error)
@@ -146,7 +164,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'All cases cleared from online storage',
-      storage: 'vercel-kv'
+      storage: process.env.KV_REST_API_URL ? 'vercel-kv' : 'memory-cache'
     })
   } catch (error) {
     console.error('❌ Error clearing cases:', error)
