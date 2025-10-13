@@ -85,11 +85,11 @@ export const useFirebaseAuth = () => {
   const { setAuthenticated } = useAuth()
 
   useEffect(() => {
-    // Safety timeout to prevent infinite loading
+    // Safety timeout to prevent infinite loading - more aggressive
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth initialization timeout - setting authenticated to false')
       setAuthenticated(false)
-    }, 3000) // 3 second timeout
+    }, 1000) // 1 second timeout
 
     const unsubscribe = FirebaseAuthService.onAuthStateChanged(async (firebaseUser) => {
       clearTimeout(safetyTimeout) // Clear timeout once auth state is known

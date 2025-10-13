@@ -10,12 +10,12 @@ export default function HomePage() {
   const [showTimeout, setShowTimeout] = useState(false)
 
   useEffect(() => {
-    // Fallback timeout to force redirect after 5 seconds
+    // Fallback timeout to force redirect after 2 seconds
     const timeout = setTimeout(() => {
       console.warn('Redirect timeout - forcing navigation to login')
       setShowTimeout(true)
       router.replace('/login')
-    }, 5000)
+    }, 2000)
 
     if (!isLoading) {
       clearTimeout(timeout)
