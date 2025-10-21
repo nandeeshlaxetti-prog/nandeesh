@@ -68,7 +68,18 @@ export default function Navigation() {
             {/* Theme Toggle */}
             <ThemeToggle />
             
-            {/* Authentication disabled - no user menu needed */}
+            {/* Simple logout button */}
+            <button
+              onClick={() => {
+                localStorage.removeItem('isAuthenticated')
+                localStorage.removeItem('userName')
+                localStorage.removeItem('userEmail')
+                router.push('/login')
+              }}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-amber-600 hover:to-amber-700 transition-all duration-200"
+            >
+              Sign Out
+            </button>
 
             {/* Mobile menu button */}
             <div className="md:hidden">

@@ -7,8 +7,8 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Authentication disabled - redirect directly to dashboard
-    router.replace('/dashboard')
+    // Redirect to login page
+    router.replace('/login')
   }, [router])
 
   // Return null - no visible loading screen

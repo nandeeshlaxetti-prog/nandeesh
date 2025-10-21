@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-state'
-import { FirebaseAuthService } from '@/lib/firebase-auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,7 +15,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   
   const router = useRouter()
-  const { setAuthenticated } = useAuth()
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -29,7 +26,7 @@ export default function LoginPage() {
     setErrors({})
     setIsLoading(true)
 
-    // Validation
+    // Simple validation
     const newErrors: { email?: string; password?: string; name?: string; general?: string } = {}
     
     if (!email) {
@@ -55,33 +52,21 @@ export default function LoginPage() {
     }
 
     try {
-      let profile
+      // Mock authentication - just redirect to dashboard
+      // In a real app, you would validate credentials here
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
       
+      // Set authentication flag in localStorage
+      localStorage.setItem('isAuthenticated', 'true')
       if (isSignUp) {
-        // Sign up new user
-        profile = await FirebaseAuthService.signUp(email, password, name.trim())
-      } else {
-        // Sign in existing user
-        profile = await FirebaseAuthService.signIn(email, password)
+        localStorage.setItem('userName', name)
       }
+      localStorage.setItem('userEmail', email)
       
-      setAuthenticated(true, profile)
+      // Redirect to dashboard
       router.push('/dashboard')
     } catch (error) {
-      console.error('Login error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed. Please try again.'
-      
-      // If Firebase is not configured, show a helpful message
-      if (errorMessage.includes('Firebase not initialized')) {
-        setErrors({ 
-          general: 'Authentication service not configured. Please contact support.' 
-        })
-      } else {
-        setErrors({ 
-          general: errorMessage 
-        })
-      }
-    } finally {
+      setErrors({ general: 'Login failed. Please try again.' })
       setIsLoading(false)
     }
   }
