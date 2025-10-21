@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase-config'
+import { logFirebaseConfig } from '@/lib/firebase-auth-setup'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,6 +18,27 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   
   const router = useRouter()
+
+  const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'ready' | 'error'>('checking')
+
+  // Log Firebase configuration on mount (for debugging)
+  useEffect(() => {
+    console.log('🔥 Login Page Loaded')
+    logFirebaseConfig()
+    console.log('Auth object:', auth ? '✅ Available' : '❌ Not available')
+    
+    // Check if Firebase is properly configured
+    const isConfigured = process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
+                        process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'demo-api-key'
+    
+    if (isConfigured && auth) {
+      setFirebaseStatus('ready')
+      console.log('✅ Firebase is ready')
+    } else {
+      setFirebaseStatus('error')
+      console.error('❌ Firebase is not properly configured')
+    }
+  }, [])
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -54,25 +76,45 @@ export default function LoginPage() {
     }
 
     try {
-      if (isSignUp) {
-        // Sign up with Firebase
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-        console.log('✅ User created:', userCredential.user.email)
-        
-        // Store user info
-        localStorage.setItem('isAuthenticated', 'true')
-        localStorage.setItem('userName', name)
-        localStorage.setItem('userEmail', email)
-        
-        // Redirect to dashboard
-        router.push('/dashboard')
+      // Check if Firebase is configured
+      const isFirebaseConfigured = firebaseStatus === 'ready'
+      
+      if (isFirebaseConfigured && auth) {
+        // Use Firebase Authentication
+        if (isSignUp) {
+          // Sign up with Firebase
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+          console.log('✅ User created with Firebase:', userCredential.user.email)
+          
+          // Store user info
+          localStorage.setItem('isAuthenticated', 'true')
+          localStorage.setItem('userName', name)
+          localStorage.setItem('userEmail', email)
+          
+          // Redirect to dashboard
+          router.push('/dashboard')
+        } else {
+          // Sign in with Firebase
+          const userCredential = await signInWithEmailAndPassword(auth, email, password)
+          console.log('✅ User signed in with Firebase:', userCredential.user.email)
+          
+          // Store authentication status
+          localStorage.setItem('isAuthenticated', 'true')
+          localStorage.setItem('userEmail', email)
+          
+          // Redirect to dashboard
+          router.push('/dashboard')
+        }
       } else {
-        // Sign in with Firebase
-        const userCredential = await signInWithEmailAndPassword(auth, email, password)
-        console.log('✅ User signed in:', userCredential.user.email)
+        // Fallback to mock authentication (for development/testing)
+        console.warn('⚠️ Using mock authentication (Firebase not configured)')
+        await new Promise(resolve => setTimeout(resolve, 800)) // Simulate API call
         
-        // Store authentication status
+        // Set authentication flag in localStorage
         localStorage.setItem('isAuthenticated', 'true')
+        if (isSignUp) {
+          localStorage.setItem('userName', name)
+        }
         localStorage.setItem('userEmail', email)
         
         // Redirect to dashboard
@@ -100,6 +142,8 @@ export default function LoginPage() {
         errorMessage = 'Too many failed attempts. Please try again later.'
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your connection.'
+      } else if (error.message && error.message.includes('auth/operation-not-allowed')) {
+        errorMessage = 'Email/Password authentication is not enabled in Firebase Console. Please enable it in Authentication > Sign-in method.'
       }
       
       setErrors({ general: errorMessage })
@@ -128,6 +172,16 @@ export default function LoginPage() {
             {isSignUp ? 'Join LNN Legal today' : 'Welcome back to LNN Legal'}
           </p>
         </div>
+
+        {/* Firebase Status Warning */}
+        {firebaseStatus === 'error' && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">
+              ⚠️ <strong>Firebase not configured.</strong> Using local storage fallback.
+              Check console for details.
+            </p>
+          </div>
+        )}
 
         {/* Login Form */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
