@@ -11,9 +11,9 @@
  * 5. Replace the config below with your actual values
  */
 
-import { initializeApp, getApps, getApp } from 'firebase/app'
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app'
+import { getFirestore, Firestore } from 'firebase/firestore'
+import { getAuth, Auth } from 'firebase/auth'
 
 // Demo Firebase configuration (replace with your actual config)
 const firebaseConfig = {
@@ -26,14 +26,31 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 }
 
-// Initialize Firebase - check if app already exists
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+// Initialize Firebase - check if app already exists (singleton pattern)
+let app: FirebaseApp
+let db: Firestore
+let auth: Auth
 
-// Initialize Firestore
-export const db = getFirestore(app)
+if (typeof window !== 'undefined') {
+  // Client-side initialization
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  db = getFirestore(app)
+  auth = getAuth(app)
+  
+  // Enable Auth persistence for faster subsequent logins
+  import('firebase/auth').then(({ setPersistence, browserLocalPersistence }) => {
+    setPersistence(auth, browserLocalPersistence).catch(err => {
+      console.warn('Could not set auth persistence:', err)
+    })
+  })
+} else {
+  // Server-side initialization (minimal)
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  db = getFirestore(app)
+  auth = getAuth(app)
+}
 
-// Initialize Auth
-export const auth = getAuth(app)
+export { db, auth }
 
 // For demo purposes, we'll use localStorage fallback when Firebase is not configured
 export const isFirebaseConfigured = () => {
