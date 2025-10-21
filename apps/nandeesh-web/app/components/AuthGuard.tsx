@@ -81,8 +81,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // Simple mock authentication check (only on client)
   const isAuthenticated = isClient && localStorage.getItem('isAuthenticated') === 'true'
 
-  // Show loading while checking authentication on client side
-  if (!isClient) {
+  // Check if current route is public - allow immediate render for public routes
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  )
+
+  // Show loading only for protected routes while checking authentication
+  if (!isClient && !isPublicRoute) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -93,9 +98,22 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-  // If it's a protected route and user is not authenticated, don't render anything
+  // For public routes, render immediately without waiting for client check
+  if (isPublicRoute) {
+    return <>{children}</>
+  }
+
+  // If it's a protected route and user is not authenticated, don't render anything  
+  // (the useEffect above will handle the redirect)
   if (isProtectedRoute && !isAuthenticated) {
-    return null
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    )
   }
 
   return <>{children}</>
