@@ -1,14 +1,11 @@
 'use client'
 
-import { useFirebaseAuth } from '@/lib/auth-state'
-
 interface FirebaseAuthProviderProps {
   children: React.ReactNode
 }
 
+// Authentication disabled - Firebase auth provider bypassed
 export default function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
-  // Initialize Firebase auth state listener
-  useFirebaseAuth()
-  
+  // Simply render children without Firebase auth initialization
   return <>{children}</>
 }

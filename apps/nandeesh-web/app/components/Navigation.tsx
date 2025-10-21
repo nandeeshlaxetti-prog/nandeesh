@@ -2,18 +2,15 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useState } from 'react'
 import { LogoWithText } from './Logo'
-import { useAuth } from '@/lib/auth-state'
 import UnifiedSearch from './UnifiedSearch'
-import { ChevronDownIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
+// Removed unused auth-related imports
 import { ThemeToggle } from '../../components/theme-toggle'
 
 export default function Navigation() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  // Authentication disabled - no auth state needed
 
   // Don't show navigation on login page or root page
   if (pathname === '/login' || pathname === '/') {
@@ -71,49 +68,7 @@ export default function Navigation() {
             {/* Theme Toggle */}
             <ThemeToggle />
             
-            {isAuthenticated && user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 rounded-lg px-3 py-2 transition-colors"
-                >
-                  <div className="h-8 w-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-white">
-                      {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="hidden sm:block font-medium">{user.name || user.email}</span>
-                  <ChevronDownIcon className="h-4 w-4" />
-                </button>
-
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{user.name || user.email}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        logout()
-                        setShowUserMenu(false)
-                        router.push('/login')
-                      }}
-                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                      <span>Sign Out</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-amber-600 hover:to-amber-700 transition-all duration-200"
-              >
-                Sign In
-              </Link>
-            )}
+            {/* Authentication disabled - no user menu needed */}
 
             {/* Mobile menu button */}
             <div className="md:hidden">
