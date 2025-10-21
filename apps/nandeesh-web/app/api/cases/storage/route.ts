@@ -16,9 +16,7 @@ async function getKV() {
   }
   
   try {
-    // Use require instead of import for optional dependency
-    // This prevents webpack from trying to bundle it at build time
-    const { kv } = require('@vercel/kv')
+    const { kv } = await import('@vercel/kv')
     return kv
   } catch (error) {
     console.log('Vercel KV not available, using memory cache')
