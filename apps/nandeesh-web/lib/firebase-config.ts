@@ -15,15 +15,15 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getAuth, Auth } from 'firebase/auth'
 
-// Demo Firebase configuration (replace with your actual config)
+// Firebase configuration - using actual values with env var override
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "demo-project.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "demo-project.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "demo-app-id",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "lnn-legal-app.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "lnn-legal-app",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "lnn-legal-app.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "114196336810",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:114196336810:web:bebc54507fa8c23b6b40d3",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-JX55MML2VZ"
 }
 
 // Initialize Firebase - check if app already exists
