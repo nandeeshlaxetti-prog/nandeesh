@@ -381,15 +381,17 @@ export default function CasesPage() {
   useEffect(() => {
     const loadCases = async () => {
       try {
-        // First, try to load from localStorage for immediate display
-        const localCases = localStorage.getItem('legal-cases')
-        if (localCases) {
-          try {
-            const parsedCases = JSON.parse(localCases)
-            setCases(parsedCases)
-            console.log(`📦 Loaded ${parsedCases.length} cases from localStorage`)
-          } catch (e) {
-            console.error('Failed to parse localStorage cases:', e)
+        // First, try to load from localStorage for immediate display (only on client)
+        if (typeof window !== 'undefined') {
+          const localCases = localStorage.getItem('legal-cases')
+          if (localCases) {
+            try {
+              const parsedCases = JSON.parse(localCases)
+              setCases(parsedCases)
+              console.log(`📦 Loaded ${parsedCases.length} cases from localStorage`)
+            } catch (e) {
+              console.error('Failed to parse localStorage cases:', e)
+            }
           }
         }
 
@@ -472,10 +474,12 @@ export default function CasesPage() {
         setCloudSyncStatus(cloudStorageService.getSyncStatus())
       } catch (error) {
         console.error('Failed to load cases from cloud:', error)
-        // Fallback to localStorage
-        const storedCases = localStorage.getItem('legal-cases')
-        if (storedCases) {
-          setCases(JSON.parse(storedCases))
+        // Fallback to localStorage (only on client)
+        if (typeof window !== 'undefined') {
+          const storedCases = localStorage.getItem('legal-cases')
+          if (storedCases) {
+            setCases(JSON.parse(storedCases))
+          }
         }
       }
     }
@@ -575,9 +579,11 @@ export default function CasesPage() {
     const saveCases = async () => {
       if (cases.length === 0) return
       
-      // Save to localStorage as backup (instant)
-      localStorage.setItem('legal-cases', JSON.stringify(cases))
-      console.log(`💾 Backed up ${cases.length} cases to localStorage`)
+      // Save to localStorage as backup (instant) - only on client
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('legal-cases', JSON.stringify(cases))
+        console.log(`💾 Backed up ${cases.length} cases to localStorage`)
+      }
       
       // Save to online storage (for multi-user access)
       try {
@@ -662,19 +668,21 @@ export default function CasesPage() {
       setSyncStatus(status)
     })
 
-    // Load saved settings
-    const savedSettings = localStorage.getItem('legal-desktop-auto-refresh')
-    if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings)
-        setAutoRefreshEnabled(settings.enabled || false)
-        setRefreshInterval(settings.interval || 30)
-        
-        if (settings.enabled) {
-          backgroundSyncService.start(settings.interval)
+    // Load saved settings (only on client)
+    if (typeof window !== 'undefined') {
+      const savedSettings = localStorage.getItem('legal-desktop-auto-refresh')
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings)
+          setAutoRefreshEnabled(settings.enabled || false)
+          setRefreshInterval(settings.interval || 30)
+          
+          if (settings.enabled) {
+            backgroundSyncService.start(settings.interval)
+          }
+        } catch (error) {
+          console.error('Failed to load auto-refresh settings:', error)
         }
-      } catch (error) {
-        console.error('Failed to load auto-refresh settings:', error)
       }
     }
 
@@ -693,11 +701,13 @@ export default function CasesPage() {
       backgroundSyncService.stop()
     }
     
-    // Save settings
-    localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
-      enabled,
-      interval: refreshInterval
-    }))
+    // Save settings (only on client)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
+        enabled,
+        interval: refreshInterval
+      }))
+    }
   }
 
   // Handle refresh interval change
@@ -708,11 +718,13 @@ export default function CasesPage() {
       backgroundSyncService.setInterval(interval)
     }
     
-    // Save settings
-    localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
-      enabled: autoRefreshEnabled,
-      interval
-    }))
+    // Save settings (only on client)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('legal-desktop-auto-refresh', JSON.stringify({
+        enabled: autoRefreshEnabled,
+        interval
+      }))
+    }
   }
 
   // Manual sync trigger
@@ -1703,7 +1715,12 @@ export default function CasesPage() {
     try {
       console.log('🔄 Starting refresh of cases with real API data...')
       
-      // Get current cases from localStorage
+      // Get current cases from localStorage (only on client)
+      if (typeof window === 'undefined') {
+        console.log('No cases found to refresh (server-side)')
+        return
+      }
+      
       const storedCases = localStorage.getItem('legal-cases')
       if (!storedCases) {
         console.log('No cases found to refresh')
@@ -1769,9 +1786,11 @@ export default function CasesPage() {
         }
       }
       
-      // Update cases state and localStorage
+      // Update cases state and localStorage (only on client)
       setCases(refreshedCases)
-      localStorage.setItem('legal-cases', JSON.stringify(refreshedCases))
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('legal-cases', JSON.stringify(refreshedCases))
+      }
       
       console.log(`🎉 Refresh completed: ${successCount} successful, ${errorCount} failed`)
       
