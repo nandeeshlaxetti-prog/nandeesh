@@ -1,20 +1,44 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import UnifiedDashboard from '@/app/components/UnifiedDashboard'
 
 export default function Dashboard() {
   const router = useRouter()
+  const [isClient, setIsClient] = useState(false)
 
-  // Get user info from localStorage
-  const userName = typeof window !== 'undefined' ? localStorage.getItem('userName') : null
-  const userEmail = typeof window !== 'undefined' ? localStorage.getItem('userEmail') : null
+  // Get user info from localStorage (only on client)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsClient(true)
+    if (typeof window !== 'undefined') {
+      setUserName(localStorage.getItem('userName'))
+      setUserEmail(localStorage.getItem('userEmail'))
+    }
+  }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated')
-    localStorage.removeItem('userName')
-    localStorage.removeItem('userEmail')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('isAuthenticated')
+      localStorage.removeItem('userName')
+      localStorage.removeItem('userEmail')
+    }
     router.push('/login')
+  }
+
+  // Show loading while checking client-side state
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

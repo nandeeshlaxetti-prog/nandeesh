@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
 interface AuthGuardProps {
@@ -31,8 +31,16 @@ const PUBLIC_ROUTES = [
 export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [isClient, setIsClient] = useState(false)
+
+  // Ensure we're on the client side before checking localStorage
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   useEffect(() => {
+    if (!isClient) return // Don't run on server side
+
     // Check if current route is protected
     const isProtectedRoute = PROTECTED_ROUTES.some(route => 
       pathname.startsWith(route)
@@ -43,7 +51,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       pathname === route || pathname.startsWith(route + '/')
     )
 
-    // Simple mock authentication check using localStorage
+    // Simple mock authentication check using localStorage (only on client)
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
 
     // If it's a protected route and user is not authenticated, redirect to login
@@ -63,15 +71,27 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       router.replace('/dashboard')
       return
     }
-  }, [pathname, router])
+  }, [pathname, router, isClient])
 
   // Check if current route is protected
   const isProtectedRoute = PROTECTED_ROUTES.some(route => 
     pathname.startsWith(route)
   )
 
-  // Simple mock authentication check
-  const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('isAuthenticated') === 'true'
+  // Simple mock authentication check (only on client)
+  const isAuthenticated = isClient && localStorage.getItem('isAuthenticated') === 'true'
+
+  // Show loading while checking authentication on client side
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   // If it's a protected route and user is not authenticated, don't render anything
   if (isProtectedRoute && !isAuthenticated) {
