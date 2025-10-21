@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'firebase/auth'
+import { auth } from '@/lib/firebase-config'
 import UnifiedDashboard from '@/app/components/UnifiedDashboard'
 
 export default function Dashboard() {
@@ -20,13 +22,26 @@ export default function Dashboard() {
     }
   }, [])
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('isAuthenticated')
-      localStorage.removeItem('userName')
-      localStorage.removeItem('userEmail')
+  const handleLogout = async () => {
+    try {
+      // Sign out from Firebase
+      await signOut(auth)
+      console.log('✅ User signed out successfully')
+      
+      // Clear local storage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('isAuthenticated')
+        localStorage.removeItem('userName')
+        localStorage.removeItem('userEmail')
+      }
+      
+      // Redirect to login
+      router.push('/login')
+    } catch (error) {
+      console.error('❌ Sign out error:', error)
+      // Still redirect to login even if Firebase signOut fails
+      router.push('/login')
     }
-    router.push('/login')
   }
 
   // Show loading while checking client-side state

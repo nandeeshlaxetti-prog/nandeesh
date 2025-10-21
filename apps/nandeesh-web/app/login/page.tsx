@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/lib/firebase-config'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -52,21 +54,55 @@ export default function LoginPage() {
     }
 
     try {
-      // Mock authentication - just redirect to dashboard
-      // In a real app, you would validate credentials here
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      // Set authentication flag in localStorage
-      localStorage.setItem('isAuthenticated', 'true')
       if (isSignUp) {
+        // Sign up with Firebase
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+        console.log('✅ User created:', userCredential.user.email)
+        
+        // Store user info
+        localStorage.setItem('isAuthenticated', 'true')
         localStorage.setItem('userName', name)
+        localStorage.setItem('userEmail', email)
+        
+        // Redirect to dashboard
+        router.push('/dashboard')
+      } else {
+        // Sign in with Firebase
+        const userCredential = await signInWithEmailAndPassword(auth, email, password)
+        console.log('✅ User signed in:', userCredential.user.email)
+        
+        // Store authentication status
+        localStorage.setItem('isAuthenticated', 'true')
+        localStorage.setItem('userEmail', email)
+        
+        // Redirect to dashboard
+        router.push('/dashboard')
       }
-      localStorage.setItem('userEmail', email)
+    } catch (error: any) {
+      console.error('❌ Authentication error:', error)
       
-      // Redirect to dashboard
-      router.push('/dashboard')
-    } catch (error) {
-      setErrors({ general: 'Login failed. Please try again.' })
+      // Handle Firebase auth errors with user-friendly messages
+      let errorMessage = 'Authentication failed. Please try again.'
+      
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format.'
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled.'
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email. Please sign up first.'
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.'
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please sign in instead.'
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use a stronger password.'
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.'
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection.'
+      }
+      
+      setErrors({ general: errorMessage })
       setIsLoading(false)
     }
   }
