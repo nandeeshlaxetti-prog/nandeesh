@@ -8,7 +8,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { unifiedDataService } from '@/lib/unified-data-service'
-import { cloudStorageService } from '@/lib/cloud-storage-service'
 import { 
   FolderIcon, 
   UserIcon, 
@@ -50,12 +49,8 @@ export default function UnifiedDashboard() {
   useEffect(() => {
     loadDashboardData()
     
-    // Subscribe to user presence changes
-    const unsubscribe = cloudStorageService.onPresenceChange((userCount) => {
-      setActiveUsers(userCount)
-    })
-
-    return unsubscribe
+    // Mock active users count (no Firebase dependency)
+    setActiveUsers(1)
   }, [])
 
   const loadDashboardData = async () => {

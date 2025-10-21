@@ -1,15 +1,19 @@
 'use client'
 
-import { useAuth } from '@/lib/auth-state'
 import { useRouter } from 'next/navigation'
 import UnifiedDashboard from '@/app/components/UnifiedDashboard'
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
   const router = useRouter()
 
+  // Get user info from localStorage
+  const userName = typeof window !== 'undefined' ? localStorage.getItem('userName') : null
+  const userEmail = typeof window !== 'undefined' ? localStorage.getItem('userEmail') : null
+
   const handleLogout = () => {
-    logout()
+    localStorage.removeItem('isAuthenticated')
+    localStorage.removeItem('userName')
+    localStorage.removeItem('userEmail')
     router.push('/login')
   }
 
@@ -19,7 +23,7 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {user?.name || user?.email}
+            Welcome back, {userName || userEmail || 'User'}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Here's what's happening with your legal practice today.
