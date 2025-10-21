@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow authenticated users to read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to read/write cases
+    match /cases/{caseId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read/write tasks
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read/write projects
+    match /projects/{projectId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read/write their activity
+    match /userActivity/{activityId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow all operations on sync metadata
+    match /syncMetadata/{docId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow all operations on advocate data
+    match /advocates/{advocateId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
