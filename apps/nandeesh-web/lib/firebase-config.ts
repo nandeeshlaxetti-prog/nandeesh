@@ -15,15 +15,28 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getAuth, Auth } from 'firebase/auth'
 
+// Helper function to clean environment variables (remove newlines, trim whitespace)
+const cleanEnvVar = (value: string | undefined): string | undefined => {
+  if (!value) return value
+  // Remove all newline characters (\r\n, \n, \r), URL-encoded newlines, and trim whitespace
+  return value
+    .replace(/[\r\n]+/g, '')
+    .replace(/%0D%0A/g, '')
+    .replace(/%0D/g, '')
+    .replace(/%0A/g, '')
+    .trim()
+}
+
 // Firebase configuration - using actual values with env var override
+// Clean all environment variables to remove any newline characters
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "lnn-legal-app.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "lnn-legal-app",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "lnn-legal-app.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "114196336810",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:114196336810:web:bebc54507fa8c23b6b40d3",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-JX55MML2VZ"
+  apiKey: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_API_KEY) || "AIzaSyCDoZu4RNkSCn7uYpX1W9e83zwdfJ2ivoY",
+  authDomain: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || "lnn-legal-app.firebaseapp.com",
+  projectId: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || "lnn-legal-app",
+  storageBucket: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || "lnn-legal-app.firebasestorage.app",
+  messagingSenderId: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || "114196336810",
+  appId: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_APP_ID) || "1:114196336810:web:bebc54507fa8c23b6b40d3",
+  measurementId: cleanEnvVar(process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || "G-JX55MML2VZ"
 }
 
 // Initialize Firebase - check if app already exists

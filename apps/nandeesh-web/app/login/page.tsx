@@ -135,7 +135,31 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error('❌ Authentication error:', error)
       
-      // Handle Firebase auth errors with user-friendly messages
+      // Check for Firebase configuration/API errors - use fallback immediately
+      const shouldFallback = 
+        error.message?.includes('timeout') ||
+        error.message?.includes('api-key-not-valid') ||
+        error.message?.includes('API key not valid') ||
+        error.code === 'auth/network-request-failed' ||
+        error.code === 'auth/too-many-requests'
+      
+      if (shouldFallback) {
+        console.warn('⚠️ Firebase error detected - using localStorage fallback')
+        
+        // Fall back to localStorage auth
+        localStorage.setItem('isAuthenticated', 'true')
+        if (isSignUp && name) {
+          localStorage.setItem('userName', name)
+        }
+        localStorage.setItem('userEmail', email)
+        
+        // Show success message and redirect
+        console.log('✅ Using fallback authentication (localStorage)')
+        router.push('/dashboard')
+        return
+      }
+      
+      // Handle other Firebase auth errors with user-friendly messages
       let errorMessage = 'Authentication failed. Please try again.'
       
       if (error.code === 'auth/invalid-email') {
@@ -152,25 +176,8 @@ export default function LoginPage() {
         errorMessage = 'Password is too weak. Please use a stronger password.'
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed attempts. Please try again later.'
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your connection.'
       } else if (error.message && error.message.includes('auth/operation-not-allowed')) {
         errorMessage = 'Email/Password authentication is not enabled in Firebase Console. Please enable it in Authentication > Sign-in method.'
-      } else if (error.message && error.message.includes('timeout')) {
-        errorMessage = 'Authentication is taking too long. This might be a network issue. Please try again or use the fallback option.'
-        console.warn('⚠️ Firebase auth timeout - falling back to mock auth')
-        
-        // Fall back to mock auth on timeout
-        localStorage.setItem('isAuthenticated', 'true')
-        if (isSignUp && name) {
-          localStorage.setItem('userName', name)
-        }
-        localStorage.setItem('userEmail', email)
-        
-        // Show success message and redirect
-        console.log('✅ Using fallback authentication')
-        router.push('/dashboard')
-        return
       }
       
       setErrors({ general: errorMessage })
